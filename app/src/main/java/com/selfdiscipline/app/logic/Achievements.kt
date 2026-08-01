@@ -25,17 +25,35 @@ data class AchievementDef(
     val aiAdded: Boolean = false,
 )
 
-/**
- * 内置成就（精简版，方便测试 AI 自动补充成就：未完成 < 3 时触发）。
- * 原有 11 项：首次打卡、连续打卡7天、戒淫/戒馋/戒贪/修养/修行连续达标、
- * 修体连续30天、总分连续7天≥50、单日满分、累计打卡30天。
- */
+/** 完整的内置成就（11 项） */
 val ACHIEVEMENTS = listOf(
     AchievementDef("🌱", "首次打卡", "记录第一天的分数", Condition.Streak(1) { true }),
     AchievementDef("🔥", "连续打卡 7 天", "连续 7 天都有记录", Condition.Streak(7) { true }),
+    AchievementDef("🛡️", "戒淫连续 10 天 ≥8 分", "守住清净连续 10 天", Condition.Streak(10) {
+        Metrics.score(Category.JIE_YIN, it) >= 8
+    }),
+    AchievementDef("🍽️", "戒馋连续 7 天 ≥8 分", "管住嘴连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.JIE_CHAN, it) >= 8
+    }),
+    AchievementDef("🎯", "戒贪连续 7 天 ≥8 分", "不被欲望带走连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.JIE_TAN, it) >= 8
+    }),
+    AchievementDef("😴", "修养连续 7 天 ≥8 分", "睡好觉连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.XIU_YANG, it) >= 8
+    }),
+    AchievementDef("💪", "修体连续 30 天", "连续 30 天完成修体", Condition.Streak(30) {
+        Metrics.score(Category.XIU_TI, it) > 0
+    }),
+    AchievementDef("📚", "修行连续 7 天 ≥8 分", "实干连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.XIU_XING, it) >= 8
+    }),
     AchievementDef("👑", "总分连续 7 天 ≥50", "总分保持一周 50 以上", Condition.Streak(7) {
         Metrics.total(it) >= 50
     }),
+    AchievementDef("🏆", "单日满分", "某一天拿到 60 分满分", Condition.Streak(1) {
+        Metrics.total(it) == 60
+    }),
+    AchievementDef("📈", "累计打卡 30 天", "累计记录满 30 天", Condition.Cumulative(30) { true }),
 )
 
 data class AchievementState(
