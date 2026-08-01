@@ -49,11 +49,19 @@ class Handler(BaseHTTPRequestHandler):
             # AI 辅助判断（详情页）：按「」中的类目标题精确匹配
             if "「戒淫」" in user_msg:
                 reply = json.dumps({
+                    "reply": "从你的描述来看，这次克制得很不错，值得肯定。",
                     "level": 8,
-                    "reason": "从描述看有冲动但成功克制，符合 8 分档",
+                    "reason": "有冲动但成功克制，符合 8 分档",
+                }, ensure_ascii=False)
+            elif "呢" in user_msg or "什么" in user_msg or "?" in user_msg:
+                # 用户只是在提问/聊天 → 只回复，不判断
+                reply = json.dumps({
+                    "reply": "这个问题可以这么理解：判断标准只看实际行为是否满足，不用纠结定义。你可以再描述下今天的具体情况，我来帮你判断～",
+                    "items": [],
                 }, ensure_ascii=False)
             else:
                 reply = json.dumps({
+                    "reply": "了解了，我根据你的描述逐项判断了一下：",
                     "items": [
                         {"index": 0, "checked": True, "reason": "三餐都按时吃了"},
                         {"index": 1, "checked": True, "reason": "晚饭七八分饱，没有吃撑"},

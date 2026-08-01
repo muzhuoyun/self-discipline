@@ -245,7 +245,8 @@ private fun AiAutoCheckCard(
                         }
                     }
                     is AiStreamState.Streaming -> {
-                        ChatBubble(isUser = false, text = (state as AiStreamState.Streaming).text)
+                        // 流式只显示回复文本，隐藏尾部的 JSON 判断部分
+                        ChatBubble(isUser = false, text = AiPrompts.streamDisplayText((state as AiStreamState.Streaming).text))
                     }
                     is AiStreamState.Error -> {
                         Text(
@@ -287,7 +288,9 @@ private fun AiAutoCheckCard(
                     Text(if (history.isNotEmpty()) "继续对话" else "开始判断")
                 }
 
-                if (outcome != null && state is AiStreamState.Done) {
+                if (outcome != null && state is AiStreamState.Done &&
+                    (outcome.level != null || outcome.items.isNotEmpty())
+                ) {
                     Spacer(Modifier.height(6.dp))
                     Text(
                         "✅ 本轮判断已自动应用到上面",
@@ -347,7 +350,7 @@ private fun ChatBubble(isUser: Boolean, text: String) {
     }
 }
 
-/** 一轮判断的结果与理由 */
+/** 一轮的结果：AI 的回复 + 判断理由（有判断时） */
 @Composable
 private fun TurnResultCard(category: Category, outcome: com.selfdiscipline.app.ai.AutoCheckOutcome) {
     Surface(
@@ -356,19 +359,25 @@ private fun TurnResultCard(category: Category, outcome: com.selfdiscipline.app.a
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (category == Category.JIE_YIN) {
-                outcome.level?.let { level ->
-                    ReasonRow(level = level, reason = outcome.levelReason ?: "")
-                }
-            } else {
-                val criteria = Metrics.criteria.getValue(category)
-                outcome.items.entries.sortedBy { it.key }.forEach { (index, checked) ->
-                    if (index in criteria.indices) {
-                        ReasonRow(
-                            label = criteria[index].label,
-                            checked = checked,
-                            reason = outcome.reasons[index] ?: "",
-                        )
+            if (outcome.reply.isNotBlank()) {
+                Text(outcome.reply, style = MaterialTheme.typography.bodyMedium)
+            }
+            val hasJudgement = outcome.level != null || outcome.items.isNotEmpty()
+            if (hasJudgement) {
+                if (category == Category.JIE_YIN) {
+                    outcome.level?.let { level ->
+                        ReasonRow(level = level, reason = outcome.levelReason ?: "")
+                    }
+                } else {
+                    val criteria = Metrics.criteria.getValue(category)
+                    outcome.items.entries.sortedBy { it.key }.forEach { (index, checked) ->
+                        if (index in criteria.indices) {
+                            ReasonRow(
+                                label = criteria[index].label,
+                                checked = checked,
+                                reason = outcome.reasons[index] ?: "",
+                            )
+                        }
                     }
                 }
             }

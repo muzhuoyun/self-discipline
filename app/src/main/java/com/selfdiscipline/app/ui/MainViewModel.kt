@@ -166,19 +166,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ChatTurn(ChatTurn.ROLE_ASSISTANT, fullText))
             val outcome = AiPrompts.parseAutoCheck(fullText)
             if (outcome != null) {
-                viewModelScope.launch {
-                    val base = recordAt(date) ?: DailyRecord(date = date.toString())
-                    var current = base
-                    if (category == Category.JIE_YIN) {
-                        outcome.level?.let { current = current.withJieYin(it) }
-                    } else {
-                        outcome.items.forEach { (index, checked) ->
-                            if (index in Metrics.criteria.getValue(category).indices) {
-                                current = current.withCriterion(category, index, checked)
+                // 只有本轮包含判断（等级或勾选）时才应用到记录；纯聊天不写记录
+                val hasJudgement = outcome.level != null || outcome.items.isNotEmpty()
+                if (hasJudgement) {
+                    viewModelScope.launch {
+                        val base = recordAt(date) ?: DailyRecord(date = date.toString())
+                        var current = base
+                        if (category == Category.JIE_YIN) {
+                            outcome.level?.let { current = current.withJieYin(it) }
+                        } else {
+                            outcome.items.forEach { (index, checked) ->
+                                if (index in Metrics.criteria.getValue(category).indices) {
+                                    current = current.withCriterion(category, index, checked)
+                                }
                             }
                         }
+                        repo.save(current)
                     }
-                    repo.save(current)
                 }
             }
             _autoCheckOutcome.value = outcome

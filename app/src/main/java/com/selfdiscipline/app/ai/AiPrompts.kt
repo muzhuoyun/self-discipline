@@ -53,32 +53,37 @@ object AiPrompts {
     // ---------- 详情页 AI 辅助判断 ----------
 
     /**
-     * 单选（戒淫）提示词：先理解行为关键点，再判断最贴近哪个等级。
+     * 单选（戒淫）提示词：先回应用户意图（闲聊/提问/澄清），
+     * 有可判断的信息时再选择最贴近的等级。
      */
     fun autoCheckLevelSystem(): String = "$ROLE\n" +
-        "用户会描述自己当天在「戒淫」方面的实际情况。请在以下四个等级中判断用户的情况最贴近哪一个：\n" +
-        "10 分：无接触、无冲动，清净自在；8 分：有冲动，但成功克制；5 分：接触了一点，及时停止；0 分：完全放纵。\n" +
-        "判断步骤：先抓住用户描述的关键行为（有没有接触、有没有冲动、有没有成功克制），再选择最贴近的等级；" +
-        "描述不足时选择最保守（偏低）的等级。\n" +
-        "只输出 JSON，不要其他文字：{\"level\":8,\"reason\":\"简短理由（30字内）\"}"
+        "用户可能会说任何话：闲聊、提问、或者描述自己当天在「戒淫」方面的实际情况。请分两步：\n" +
+        "第一步（意图回应）：先用简短（60字内）友好的话直接回应或澄清用户的话。" +
+        "如果用户只是聊天或提问，这一步就是全部，不要做任何判断。\n" +
+        "第二步（等级判断）：只有用户确实描述了实际情况，才在四个等级中判断最贴近的一个：" +
+        "10 分：无接触、无冲动，清净自在；8 分：有冲动，但成功克制；5 分：接触了一点，及时停止；0 分：完全放纵。" +
+        "先抓住关键行为（有没有接触、有没有冲动、有没有成功克制），描述不足时选最保守（偏低）的等级。\n" +
+        "输出格式（严格 JSON，reply 必须有，level 可有可无）：" +
+        "{\"reply\":\"先回应用户的话\",\"level\":8,\"reason\":\"判断理由（30字内）\"}"
 
     /**
-     * 多选（勾选类）提示词：两阶段判断。
-     * 第一阶段先识别用户描述涉及哪些选项（可能一个或多个），
-     * 第二阶段仅对涉及到的选项判断该不该勾选。
+     * 多选（勾选类）提示词：先回应用户意图，有可判断的信息时再走两阶段判断
+     * （先识别涉及哪些选项，再判断该不该勾选）。
      */
     fun autoCheckChecklistSystem(category: Category): String {
         val list = Metrics.criteria.getValue(category)
             .withIndex().joinToString("\n") { "${it.index}. ${it.value.label}（${it.value.points}分）" }
         return "$ROLE\n" +
-            "用户会描述自己当天在「${category.title}」方面的实际情况。请分两步判断：\n" +
-            "第一步（涉及识别）：先判断用户描述涉及下面选项中的哪几个（可能一个，也可能多个）；\n" +
-            "第二步（符合判断）：只对涉及到的选项，判断用户所说的情况是否符合该项标准——" +
-            "符合则勾选，不符合则不勾选。\n" +
-            "规则：结果里只出现涉及到的选项；用户完全没提到的选项不要出现在结果里；" +
-            "描述模糊拿不准时宁可少判，不要臆测。\n" +
+            "用户可能会说任何话：闲聊、提问、或者描述自己当天在「${category.title}」方面的实际情况。请分两步：\n" +
+            "第一步（意图回应）：先用简短（60字内）友好的话直接回应或澄清用户的话。" +
+            "如果用户只是聊天或提问，这一步就是全部，不要做任何判断。\n" +
+            "第二步（判断）：只有用户确实描述了实际情况，才判断。判断分两步：\n" +
+            "  1）涉及识别：先判断描述涉及下面选项中的哪几个（可能一个，也可能多个）；\n" +
+            "  2）符合判断：只对涉及到的选项，判断所说情况是否符合该项标准——符合勾选，不符合不勾选。\n" +
+            "规则：结果里只出现涉及到的选项；没提到的选项不要出现；模糊时宁可少判。\n" +
             "选项列表：\n$list\n" +
-            "只输出 JSON，不要其他文字：{\"items\":[{\"index\":0,\"checked\":true,\"reason\":\"简短理由（30字内）\"}]}"
+            "输出格式（严格 JSON，reply 必须有，items 可空）：" +
+            "{\"reply\":\"先回应用户的话\",\"items\":[{\"index\":0,\"checked\":true,\"reason\":\"简短理由（30字内）\"}]}"
     }
 
     fun autoCheckUser(category: Category, input: String): String =
@@ -164,10 +169,10 @@ object AiPrompts {
         val json = extractJson(text) ?: return null
         return runCatching {
             val obj = JSONObject(json)
-            if (obj.has("items")) {
-                val items = mutableMapOf<Int, Boolean>()
-                val reasons = mutableMapOf<Int, String>()
-                val arr = obj.getJSONArray("items")
+            val reply = obj.optString("reply").takeIf { it.isNotBlank() } ?: ""
+            val items = mutableMapOf<Int, Boolean>()
+            val reasons = mutableMapOf<Int, String>()
+            obj.optJSONArray("items")?.let { arr ->
                 for (i in 0 until arr.length()) {
                     val item = arr.getJSONObject(i)
                     val index = item.optInt("index", -1)
@@ -176,16 +181,21 @@ object AiPrompts {
                         item.optString("reason").takeIf { it.isNotBlank() }?.let { reasons[index] = it }
                     }
                 }
-                AutoCheckOutcome(items = items, reasons = reasons)
-            } else {
-                AutoCheckOutcome(
-                    items = emptyMap(),
-                    reasons = emptyMap(),
-                    level = obj.optInt("level", -1).takeIf { it in listOf(0, 5, 8, 10) },
-                    levelReason = obj.optString("reason").takeIf { it.isNotBlank() },
-                )
             }
+            AutoCheckOutcome(
+                reply = reply,
+                items = items,
+                reasons = reasons,
+                level = obj.optInt("level", -1).takeIf { it in listOf(0, 5, 8, 10) },
+                levelReason = obj.optString("reason").takeIf { it.isNotBlank() },
+            )
         }.getOrNull()
+    }
+
+    /** 流式显示时：只展示 JSON 之前的回复文本，隐藏尾部 JSON */
+    fun streamDisplayText(text: String): String {
+        val idx = text.indexOf('{')
+        return if (idx >= 0) text.substring(0, idx).trim() else text
     }
 
     /** 校验 AI 输出的成就 JSON，返回合法的成就列表和每条的校验结果 */
