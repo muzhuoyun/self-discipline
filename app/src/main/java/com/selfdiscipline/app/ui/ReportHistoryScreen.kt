@@ -20,6 +20,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +51,8 @@ fun ReportHistoryScreen(vm: MainViewModel, onBack: () -> Unit) {
     var expandedId by remember { mutableStateOf<Long?>(null) }
     var confirmDelete by remember { mutableStateOf<AiChatLog?>(null) }
 
+    var tab by remember { mutableStateOf(0) }
+
     Column(Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
@@ -64,6 +68,19 @@ fun ReportHistoryScreen(vm: MainViewModel, onBack: () -> Unit) {
             )
         }
 
+        TabRow(selectedTabIndex = tab) {
+            Tab(
+                selected = tab == 0,
+                onClick = { tab = 0 },
+                text = { Text("📅 周报（${weekly.size}）") },
+            )
+            Tab(
+                selected = tab == 1,
+                onClick = { tab = 1 },
+                text = { Text("🗓 月报（${monthly.size}）") },
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -71,20 +88,21 @@ fun ReportHistoryScreen(vm: MainViewModel, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            ReportSection(
-                title = "📅 周报",
-                reports = weekly,
-                expandedId = expandedId,
-                onToggle = { expandedId = if (expandedId == it) null else it },
-                onDelete = { confirmDelete = it },
-            )
-            ReportSection(
-                title = "🗓 月报",
-                reports = monthly,
-                expandedId = expandedId,
-                onToggle = { expandedId = if (expandedId == it) null else it },
-                onDelete = { confirmDelete = it },
-            )
+            if (tab == 0) {
+                ReportSection(
+                    reports = weekly,
+                    expandedId = expandedId,
+                    onToggle = { expandedId = if (expandedId == it) null else it },
+                    onDelete = { confirmDelete = it },
+                )
+            } else {
+                ReportSection(
+                    reports = monthly,
+                    expandedId = expandedId,
+                    onToggle = { expandedId = if (expandedId == it) null else it },
+                    onDelete = { confirmDelete = it },
+                )
+            }
             Spacer(Modifier.height(8.dp))
         }
     }
@@ -120,18 +138,12 @@ fun ReportHistoryScreen(vm: MainViewModel, onBack: () -> Unit) {
 /** 一栏报告列表 */
 @Composable
 private fun ReportSection(
-    title: String,
     reports: List<AiChatLog>,
     expandedId: Long?,
     onToggle: (Long) -> Unit,
     onDelete: (AiChatLog) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
         if (reports.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),

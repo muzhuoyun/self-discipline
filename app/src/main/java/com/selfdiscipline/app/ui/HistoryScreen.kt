@@ -38,6 +38,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -206,51 +208,65 @@ fun HistoryScreen(
         // ---------- 趋势 ----------
         TrendSection(vm = vm, records = records)
 
-        // ---------- AI 周报（上一周） ----------
+        // ---------- AI 报告（周报 / 月报 Tab 切换） ----------
+        var reportTab by remember { mutableStateOf(0) }
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "📅 AI 周报",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
+            Column {
+                TabRow(selectedTabIndex = reportTab) {
+                    Tab(
+                        selected = reportTab == 0,
+                        onClick = { reportTab = 0 },
+                        text = { Text("📅 周报") },
                     )
-                    Button(
-                        onClick = { vm.generateWeeklyReport() },
-                        enabled = weeklyState !is AiStreamState.Loading && weeklyState !is AiStreamState.Streaming,
-                    ) {
-                        Text("生成上周周报")
-                    }
-                }
-                ReportBody(label = weeklyLabel, state = weeklyState)
-            }
-        }
-
-        // ---------- AI 月报（上一月） ----------
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "🗓 AI 月报",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
+                    Tab(
+                        selected = reportTab == 1,
+                        onClick = { reportTab = 1 },
+                        text = { Text("🗓 月报") },
                     )
-                    Button(
-                        onClick = { vm.generateMonthlyReport() },
-                        enabled = monthlyState !is AiStreamState.Loading && monthlyState !is AiStreamState.Streaming,
-                    ) {
-                        Text("生成上月月报")
-                    }
                 }
-                ReportBody(label = monthlyLabel, state = monthlyState)
+                if (reportTab == 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "生成上一周的 AI 分析报告",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Button(
+                            onClick = { vm.generateWeeklyReport() },
+                            enabled = weeklyState !is AiStreamState.Loading && weeklyState !is AiStreamState.Streaming,
+                        ) {
+                            Text("生成上周周报")
+                        }
+                    }
+                    ReportBody(label = weeklyLabel, state = weeklyState)
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "生成上一个月的 AI 分析报告",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Button(
+                            onClick = { vm.generateMonthlyReport() },
+                            enabled = monthlyState !is AiStreamState.Loading && monthlyState !is AiStreamState.Streaming,
+                        ) {
+                            Text("生成上月月报")
+                        }
+                    }
+                    ReportBody(label = monthlyLabel, state = monthlyState)
+                }
+                Spacer(Modifier.height(14.dp))
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -273,7 +289,8 @@ fun HistoryScreen(
 /** 一栏报告的正文状态 */
 @Composable
 private fun ReportBody(label: String, state: AiStreamState) {
-    when (state) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)) {
+        when (state) {
         is AiStreamState.Idle -> {
             Text(
                 "生成上一周期（上周 / 上月）的 AI 报告。每次生成的报告都会存档。",
@@ -300,6 +317,7 @@ private fun ReportBody(label: String, state: AiStreamState) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
             )
+        }
         }
     }
 }
