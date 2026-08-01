@@ -65,9 +65,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.selfdiscipline.app.ai.AiStreamState
+import com.selfdiscipline.app.data.AiKinds
 import com.selfdiscipline.app.data.Category
 import com.selfdiscipline.app.data.DailyRecord
 import com.selfdiscipline.app.data.Metrics
+import androidx.compose.material3.Surface
+import java.time.temporal.ChronoUnit
 import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.math.roundToInt
@@ -255,6 +258,7 @@ fun HistoryScreen(
 
     dialogDate?.let { d ->
         DayDetailDialog(
+            vm = vm,
             date = d,
             record = byDate[d.toString()],
             onPick = { category ->
@@ -569,19 +573,43 @@ private fun LegendItem(label: String, range: IntRange) {
 /** 某一天的详情弹窗：六类得分一览，点任意一项进入编辑 */
 @Composable
 private fun DayDetailDialog(
+    vm: MainViewModel,
     date: LocalDate,
     record: DailyRecord?,
     onPick: (Category) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val aiChats by vm.aiChats.collectAsState()
+    val today = LocalDate.now()
+    val isToday = date == today
+    // 过去 = 已归档；未来 = 再等 N 天
+    val statusHint = when {
+        date.isBefore(today) -> "🗂 已归档 · 只能查看，不能修改或补录"
+        date.isAfter(today) ->
+            "⏳ 还没到 · 再等 ${ChronoUnit.DAYS.between(today, date)} 天再来打卡"
+        else -> null
+    }
+    // 该日期的 AI 打卡评价（每天只保留一份）
+    val review = aiChats.lastOrNull {
+        it.kind == AiKinds.REVIEW && it.date == date.toString()
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${date.monthValue}月${date.dayOfMonth}日 · ${date.weekdayCn}") },
         text = {
             Column {
+                statusHint?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
                 if (record == null) {
                     Text(
-                        "这天还没有打分，点下面的项目开始。",
+                        if (isToday) "今天还没有打分，点下面的项目开始。"
+                        else "这一天没有打分记录。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -600,12 +628,36 @@ private fun DayDetailDialog(
                     }
                     Spacer(Modifier.height(4.dp))
                 }
+                // 该日期的 AI 教练评价
+                review?.let { r ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text(
+                                "🤖 教练点评",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                r.response,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
                 Category.entries.forEach { category ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onPick(category) }
+                            .clickable { if (isToday) onPick(category) }
                             .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

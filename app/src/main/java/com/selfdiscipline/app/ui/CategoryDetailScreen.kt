@@ -59,6 +59,7 @@ import com.selfdiscipline.app.data.DailyRecord
 import com.selfdiscipline.app.data.JieYinLevel
 import com.selfdiscipline.app.data.Metrics
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 /** 单项指标的评分页：戒淫单选等级，其余逐项勾选，点一下就保存；底部支持 AI 辅助判断 */
 @Composable
@@ -75,6 +76,8 @@ fun CategoryDetailScreen(
     val record = records.firstOrNull { it.date == date.toString() }
         ?: DailyRecord(date = date.toString())
     val score = Metrics.score(category, record)
+    // 只允许修改当天的记录；过去/未来日期为只读归档
+    val isToday = date == LocalDate.now()
     // 该「日期 + 条目」的会话（退出再进仍在；不同条目互不串扰）
     val history = sessions[vm.sessionKey(date, category)] ?: emptyList()
 
@@ -124,6 +127,27 @@ fun CategoryDetailScreen(
         )
         Spacer(Modifier.height(12.dp))
 
+        // 非今天的提示：过去 = 已归档；未来 = 再等 N 天
+        if (!isToday) {
+            val hint = if (date.isAfter(LocalDate.now())) {
+                "⏳ 还没到 · 再等 ${ChronoUnit.DAYS.between(LocalDate.now(), date)} 天再来打卡"
+            } else {
+                "🗂 已归档 · 仅可查看，无法修改或打卡"
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Text(
+                    hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(12.dp),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -133,7 +157,11 @@ fun CategoryDetailScreen(
         ) {
             if (category == Category.JIE_YIN) {
                 Metrics.JIE_YIN_LEVELS.forEach { level ->
-                    JieYinOption(level = level, selected = record.jieYin == level.score) {
+                    JieYinOption(
+                        level = level,
+                        selected = record.jieYin == level.score,
+                        enabled = isToday,
+                    ) {
                         vm.setJieYinLevel(date, level.score)
                     }
                 }
@@ -142,19 +170,22 @@ fun CategoryDetailScreen(
                     CriterionRow(
                         criterion = criterion,
                         checked = Metrics.isChecked(category, record, index),
+                        enabled = isToday,
                     ) { checked -> vm.toggle(date, category, index, checked) }
                 }
             }
 
-            // AI 辅助判断
-            AiAutoCheckCard(
-                vm = vm,
-                date = date,
-                category = category,
-                state = autoCheckState,
-                outcome = outcome,
-                history = history,
-            )
+            // AI 辅助判断（仅当天可用）
+            if (isToday) {
+                AiAutoCheckCard(
+                    vm = vm,
+                    date = date,
+                    category = category,
+                    state = autoCheckState,
+                    outcome = outcome,
+                    history = history,
+                )
+            }
 
             Spacer(Modifier.height(4.dp))
             Text(
@@ -436,11 +467,11 @@ private fun ReasonRow(level: Int, reason: String) {
 
 /** 戒淫：四个等级单选 */
 @Composable
-private fun JieYinOption(level: JieYinLevel, selected: Boolean, onClick: () -> Unit) {
+private fun JieYinOption(level: JieYinLevel, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     val borderColor = if (selected) MaterialTheme.colorScheme.primary
     else MaterialTheme.colorScheme.outlineVariant
     Card(
-        onClick = onClick,
+        onClick = { if (enabled) onClick() },
         modifier = Modifier.fillMaxWidth(),
         border = BorderStroke(1.5.dp, borderColor),
         colors = CardDefaults.cardColors(
@@ -492,14 +523,19 @@ private fun JieYinOption(level: JieYinLevel, selected: Boolean, onClick: () -> U
 private fun CriterionRow(
     criterion: Criterion,
     checked: Boolean,
+    enabled: Boolean = true,
     onChecked: (Boolean) -> Unit,
 ) {
-    Card(onClick = { onChecked(!checked) }, modifier = Modifier.fillMaxWidth()) {
+    Card(onClick = { if (enabled) onChecked(!checked) }, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Checkbox(checked = checked, onCheckedChange = onChecked)
+            Checkbox(
+                checked = checked,
+                enabled = enabled,
+                onCheckedChange = { if (enabled) onChecked(it) },
+            )
             Text(
                 criterion.label,
                 style = MaterialTheme.typography.bodyLarge,
