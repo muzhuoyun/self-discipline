@@ -37,6 +37,11 @@ class AiService(private val settings: AiSettingsStore) {
         }
         val bodyObj = JSONObject().apply {
             put("stream", true)
+            // 关闭思维链（reasoning）：减少延迟与 token 消耗。
+            // enable_thinking 为 DeepSeek 官方参数，reasoning_effort 兼容 OpenAI 风格服务；
+            // 不支持的服务的会忽略这些字段。
+            put("enable_thinking", false)
+            put("reasoning_effort", "none")
             put("messages", org.json.JSONArray().apply {
                 put(JSONObject().put("role", "system").put("content", system))
                 history.forEach { turn ->
