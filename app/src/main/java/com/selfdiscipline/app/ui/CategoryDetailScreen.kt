@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,7 +63,9 @@ import com.selfdiscipline.app.data.Metrics
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-/** 单项指标的评分页：戒淫单选等级，其余逐项勾选，点一下就保存；底部支持 AI 辅助判断 */
+/**
+ * 单项指标打分页：顶部随当前页更新，**左右滑动切换十个项目**，无需退出再进入。
+ */
 @Composable
 fun CategoryDetailScreen(
     vm: MainViewModel,
@@ -70,24 +74,17 @@ fun CategoryDetailScreen(
     onBack: () -> Unit,
 ) {
     val records by vm.records.collectAsState()
-    val autoCheckState by vm.autoCheck.collectAsState()
-    val outcome by vm.autoCheckOutcome.collectAsState()
-    val sessions by vm.autoCheckSessions.collectAsState()
+    val pagerState = rememberPagerState(initialPage = Category.entries.indexOf(category)) {
+        Category.entries.size
+    }
+    val currentCategory = Category.entries[pagerState.currentPage]
     val record = records.firstOrNull { it.date == date.toString() }
         ?: DailyRecord(date = date.toString())
-    val score = Metrics.score(category, record)
-    // 只允许修改当天的记录；过去/未来日期为只读归档
+    val score = Metrics.score(currentCategory, record)
     val isToday = date == LocalDate.now()
-    // 该「日期 + 条目」的会话（退出再进仍在；不同条目互不串扰）
-    val history = sessions[vm.sessionKey(date, category)] ?: emptyList()
-
-    // 进入页面时从数据库恢复该条目的历史对话（应用重启后仍能看到）
-    LaunchedEffect(date, category) {
-        vm.loadAutoCheckSession(date, category)
-    }
 
     Column(Modifier.fillMaxSize()) {
-        // 顶部栏
+        // 顶部栏（随滑动更新）
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -97,12 +94,12 @@ fun CategoryDetailScreen(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    "${category.title} · ${date.monthValue}月${date.dayOfMonth}日",
+                    "${currentCategory.title} · ${date.monthValue}月${date.dayOfMonth}日",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    category.group.title,
+                    "${currentCategory.group.title} · ${pagerState.currentPage + 1}/${Category.entries.size} 项",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -117,85 +114,120 @@ fun CategoryDetailScreen(
             )
         }
 
+        Text(
+            "← 左右滑动切换项目 →",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+            CategoryPage(vm = vm, date = date, category = Category.entries[page], isToday = isToday)
+        }
+    }
+}
+
+/** 单个项目的打分页内容 */
+@Composable
+private fun CategoryPage(
+    vm: MainViewModel,
+    date: LocalDate,
+    category: Category,
+    isToday: Boolean,
+) {
+    val records by vm.records.collectAsState()
+    val autoCheckState by vm.autoCheck.collectAsState()
+    val outcome by vm.autoCheckOutcome.collectAsState()
+    val sessions by vm.autoCheckSessions.collectAsState()
+    val record = records.firstOrNull { it.date == date.toString() }
+        ?: DailyRecord(date = date.toString())
+    val score = Metrics.score(category, record)
+    // 该「日期 + 条目」的会话（退出再进仍在；不同条目互不串扰）
+    val history = sessions[vm.sessionKey(date, category)] ?: emptyList()
+
+    // 进入该页时从数据库恢复会话
+    LaunchedEffect(date, category) {
+        vm.loadAutoCheckSession(date, category)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         LinearProgressIndicator(
             progress = { score / 10f },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp)),
         )
-        Spacer(Modifier.height(12.dp))
 
-        // 非今天的提示：过去 = 已归档；未来 = 再等 N 天
+        // 归档提示：只能查看，不能修改
         if (!isToday) {
-            val hint = if (date.isAfter(LocalDate.now())) {
-                "⏳ 还没到 · 再等 ${ChronoUnit.DAYS.between(LocalDate.now(), date)} 天再来打卡"
-            } else {
-                "🗂 已归档 · 仅可查看，无法修改或打卡"
-            }
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 Text(
-                    hint,
+                    if (date.isBefore(LocalDate.now())) {
+                        "🗂 已归档 · 该日期已过，仅可查看，无法修改或打卡"
+                    } else {
+                        "⏳ 还没到 · 再等 ${ChronoUnit.DAYS.between(LocalDate.now(), date)} 天再来打卡"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(12.dp),
                 )
             }
-            Spacer(Modifier.height(10.dp))
         }
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            if (category == Category.JIE_YIN) {
-                Metrics.JIE_YIN_LEVELS.forEach { level ->
-                    JieYinOption(
-                        level = level,
-                        selected = record.jieYin == level.score,
-                        enabled = isToday,
-                    ) {
-                        vm.setJieYinLevel(date, level.score)
-                    }
-                }
-            } else {
-                Metrics.criteria.getValue(category).forEachIndexed { index, criterion ->
-                    CriterionRow(
-                        criterion = criterion,
-                        checked = Metrics.isChecked(category, record, index),
-                        enabled = isToday,
-                    ) { checked -> vm.toggle(date, category, index, checked) }
+        if (category == Category.JIE_YIN) {
+            Metrics.JIE_YIN_LEVELS.forEach { level ->
+                JieYinOption(
+                    level = level,
+                    selected = record.jieYin == level.score,
+                    enabled = isToday,
+                ) {
+                    vm.setJieYinLevel(date, level.score)
                 }
             }
-
-            // AI 辅助判断（仅当天可用）
-            if (isToday) {
-                AiAutoCheckCard(
-                    vm = vm,
-                    date = date,
-                    category = category,
-                    state = autoCheckState,
-                    outcome = outcome,
-                    history = history,
-                )
+        } else {
+            Metrics.criteria.getValue(category).forEachIndexed { index, criterion ->
+                CriterionRow(
+                    criterion = criterion,
+                    checked = Metrics.isChecked(category, record, index),
+                    enabled = isToday,
+                ) { checked -> vm.toggle(date, category, index, checked) }
             }
+        }
 
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "这个分数只是仪表盘，不是道德审判。低分只说明明天该从哪一项补起。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        // AI 辅助判断（仅当天可用）
+        if (isToday) {
+            AiAutoCheckCard(
+                vm = vm,
+                date = date,
+                category = category,
+                state = autoCheckState,
+                outcome = outcome,
+                history = history,
             )
-            Spacer(Modifier.height(8.dp))
         }
+
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "这个分数只是仪表盘，不是道德审判。低分只说明明天该从哪一项补起。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        )
+        Spacer(Modifier.height(8.dp))
     }
 }
 
