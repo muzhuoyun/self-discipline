@@ -308,8 +308,11 @@ private fun AiAutoCheckCard(
                         }
                     }
                     is AiStreamState.Streaming -> {
-                        // 流式只显示回复文本，隐藏尾部的 JSON 判断部分
-                        ChatBubble(isUser = false, text = AiPrompts.streamDisplayText((state as AiStreamState.Streaming).text))
+                        // 优先显示回复文本（JSON 前部分）；模型直接输出 JSON 时
+                        // 截断结果为空 → 显示原始流式文本，保证内容始终在流动；
+                        // 完成后由 TurnResultCard 切换为格式化展示
+                        val streamText = AiPrompts.streamDisplayText((state as AiStreamState.Streaming).text)
+                        ChatBubble(isUser = false, text = streamText.ifBlank { (state as AiStreamState.Streaming).text })
                     }
                     is AiStreamState.Error -> {
                         Text(

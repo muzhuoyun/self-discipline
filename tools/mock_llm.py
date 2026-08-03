@@ -53,6 +53,15 @@ class Handler(BaseHTTPRequestHandler):
                     "level": 8,
                     "reason": "有冲动但成功克制，符合 8 分档",
                 }, ensure_ascii=False)
+            elif "direct" in user_msg:
+                # 模拟模型直接输出 JSON（不带头文本）——验证完全流式回退
+                reply = json.dumps({
+                    "reply": "（直接 JSON 输出测试）了解了，判断如下。",
+                    "items": [
+                        {"index": 0, "checked": True, "reason": "测试项一"},
+                        {"index": 1, "checked": False, "reason": "测试项二"},
+                    ]
+                }, ensure_ascii=False)
             elif "呢" in user_msg or "什么" in user_msg or "?" in user_msg:
                 # 用户只是在提问/聊天 → 只回复，不判断
                 reply = json.dumps({
