@@ -3,16 +3,15 @@ package com.selfdiscipline.app.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-/** 四大分组：三戒 / 三修 / 四德（人品与处世） */
+/** 两大分组：三戒 / 七修（修养修体修行 + 孝诚和勤） */
 enum class Group(val title: String) {
     JIE("三戒"),
-    XIU("三修"),
-    DE("四德"),
+    XIU("七修"),
 }
 
 /**
- * 十类指标：三戒（戒淫 / 戒馋 / 戒贪）+ 三修（修养 / 修体 / 修行）
- * + 四德（孝 / 诚 / 和 / 勤），共 100 分。
+ * 十类指标：三戒（戒淫 / 戒馋 / 戒贪）+ 七修（修养 / 修体 / 修行
+ * + 孝 / 诚 / 和 / 勤），共 100 分。
  */
 enum class Category(val key: String, val title: String, val group: Group) {
     JIE_YIN("jieyin", "戒淫", Group.JIE),
@@ -21,10 +20,10 @@ enum class Category(val key: String, val title: String, val group: Group) {
     XIU_YANG("xiuyang", "修养", Group.XIU),
     XIU_TI("xiuti", "修体", Group.XIU),
     XIU_XING("xiuxing", "修行", Group.XIU),
-    XIAO("xiao", "孝", Group.DE),
-    CHENG("cheng", "诚", Group.DE),
-    HE("he", "和", Group.DE),
-    QIN("qin", "勤", Group.DE);
+    XIAO("xiao", "孝", Group.XIU),
+    CHENG("cheng", "诚", Group.XIU),
+    HE("he", "和", Group.XIU),
+    QIN("qin", "勤", Group.XIU);
 
     companion object {
         fun fromKey(key: String): Category = entries.first { it.key == key }

@@ -17,7 +17,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
 
-        /** v2 → v3：新增四德（孝/诚/和/勤）四个掩码列（旧记录默认 0） */
+        /** v2 → v3：新增孝诚和勤四个掩码列（旧记录默认 0） */
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE daily_record ADD COLUMN xiaoMask INTEGER NOT NULL DEFAULT 0")

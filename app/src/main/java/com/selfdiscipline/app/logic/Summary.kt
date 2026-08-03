@@ -21,18 +21,16 @@ object Summary {
         val bestScore = Metrics.score(best, record)
         val worstScore = Metrics.score(worst, record)
 
-        // 三组（三戒 / 三修 / 四德）小计对比
-        val groupTotals = Group.entries.associateWith { Metrics.groupTotal(record, it) }
-        val bestGroup = groupTotals.maxBy { it.value }.key
-        val worstGroup = groupTotals.minBy { it.value }.key
-        val bestGroupScore = groupTotals.getValue(bestGroup)
-        val worstGroupScore = groupTotals.getValue(worstGroup)
+        // 两组（三戒 / 七修）小计对比
+        val jie = Metrics.groupTotal(record, Group.JIE)
+        val xiu = Metrics.groupTotal(record, Group.XIU)
 
         val lead = when {
             bestScore - worstScore >= 4 -> "今日：${best.title}最佳，${worst.title}需努力"
-            bestGroupScore - worstGroupScore >= 10 -> "今日：${bestGroup.title}最佳，${worstGroup.title}需努力"
-            bestGroupScore == worstGroupScore -> "今日：三组均衡，稳步前行"
-            else -> "今日：${bestGroup.title}略胜，${worstGroup.title}可再进"
+            jie - xiu >= 15 -> "今日：三戒胜于七修"
+            xiu - jie >= 15 -> "今日：七修胜于三戒"
+            jie == xiu -> "今日：戒修均衡，稳步前行"
+            else -> "今日：${if (jie > xiu) "三戒略胜" else "七修略胜"}，整体稳中有进"
         }
 
         val level = when {

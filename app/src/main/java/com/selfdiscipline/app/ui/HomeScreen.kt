@@ -75,7 +75,7 @@ fun HomeScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "三戒 · 三修 · 四德",
+                    "三戒七修",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -242,7 +242,7 @@ fun HomeScreen(
             }
         }
 
-        // 三戒 / 三修 / 四德
+        // 三戒 / 七修
         Group.entries.forEach { group ->
             val max = Category.entries.count { it.group == group } * 10
             SectionHeader(group.title, Metrics.groupTotal(record, group), max)

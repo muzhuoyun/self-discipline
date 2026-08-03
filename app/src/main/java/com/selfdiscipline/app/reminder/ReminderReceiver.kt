@@ -36,7 +36,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context, ReminderScheduler.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_checkin)
             .setContentTitle("该打卡了 💪")
-            .setContentText("今天的三戒三修四德还没打分，花 2 分钟记录一下，明天的你会感谢今天的自己。")
+            .setContentText("今天的三戒七修还没打分，花 2 分钟记录一下，明天的你会感谢今天的自己。")
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

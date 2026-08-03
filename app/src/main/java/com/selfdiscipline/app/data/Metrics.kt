@@ -7,7 +7,7 @@ data class Criterion(val label: String, val points: Int)
 data class JieYinLevel(val score: Int, val description: String)
 
 /**
- * 三戒三修四德的评分规则（满分 100）。
+ * 三戒七修的评分规则（满分 100）。
  *
  * 戒淫：单选等级。其余九类：逐项勾选，选中即得对应分值。
  */
@@ -89,14 +89,14 @@ object Metrics {
 
     /**
      * 总分。旧制（60 分）记录按 60→100 等比折算展示：
-     * 例如旧 54/60 显示为 90/100，四德按 0 分计。
+     * 例如旧 54/60 显示为 90/100，新增维度按 0 分计。
      */
     fun total(record: DailyRecord): Int {
         val sum = Category.entries.sumOf { score(it, record) }
         return if (record.legacy) (sum * 100 / 60).coerceAtMost(100) else sum
     }
 
-    /** 某一分组（三戒 / 三修 / 四德）的小计 */
+    /** 某一分组（三戒 / 七修）的小计 */
     fun groupTotal(record: DailyRecord, group: Group): Int =
         Category.entries.filter { it.group == group }.sumOf { score(it, record) }
 

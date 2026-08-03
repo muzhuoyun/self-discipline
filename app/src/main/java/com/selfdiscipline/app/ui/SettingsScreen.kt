@@ -236,7 +236,7 @@ fun SettingsScreen(vm: MainViewModel = viewModel(), onBack: () -> Unit) {
             onDismissRequest = { permissionDenied = false },
             title = { Text("需要通知权限") },
             text = {
-                Text("开启通知权限后才能收到打卡提醒。可在系统设置中授予「三戒三修」通知权限后重试。")
+                Text("开启通知权限后才能收到打卡提醒。可在系统设置中授予「三戒七修」通知权限后重试。")
             },
             confirmButton = {
                 TextButton(onClick = { permissionDenied = false }) { Text("知道了") }
