@@ -191,6 +191,8 @@ fun HistoryScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     LegendItem("精进", 85..100)
                     LegendItem("良好", 70..84)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     LegendItem("待提升", 55..69)
                     LegendItem("调整", 0..54)
                 }
