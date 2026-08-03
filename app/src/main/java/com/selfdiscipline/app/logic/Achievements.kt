@@ -50,10 +50,26 @@ val ACHIEVEMENTS = listOf(
     AchievementDef("👑", "总分连续 7 天 ≥75", "总分保持一周精进日水准", Condition.Streak(7) {
         Metrics.total(it) >= 75
     }),
-    AchievementDef("🏆", "单日满分", "某一天拿到 60 分满分", Condition.Streak(1) {
-        Metrics.total(it) == 60
+    AchievementDef("🏆", "单日满分", "某一天拿到 100 分满分", Condition.Streak(1) {
+        Metrics.total(it) == 100
     }),
     AchievementDef("📈", "累计打卡 30 天", "累计记录满 30 天", Condition.Cumulative(30) { true }),
+    AchievementDef("🕊️", "孝连续 7 天 ≥8 分", "孝心可嘉，连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.XIAO, it) >= 8
+    }),
+    AchievementDef("🤝", "诚连续 7 天 ≥8 分", "一诺千金，连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.CHENG, it) >= 8
+    }),
+    AchievementDef("🌿", "和连续 7 天 ≥8 分", "和气致祥，连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.HE, it) >= 8
+    }),
+    AchievementDef("⚡", "勤连续 7 天 ≥8 分", "业精于勤，连续 7 天", Condition.Streak(7) {
+        Metrics.score(Category.QIN, it) >= 8
+    }),
+    AchievementDef("🏮", "四德同辉", "连续 3 天孝诚和勤全部 ≥8 分", Condition.Streak(3) {
+        Metrics.score(Category.XIAO, it) >= 8 && Metrics.score(Category.CHENG, it) >= 8 &&
+            Metrics.score(Category.HE, it) >= 8 && Metrics.score(Category.QIN, it) >= 8
+    }),
 )
 
 data class AchievementState(
