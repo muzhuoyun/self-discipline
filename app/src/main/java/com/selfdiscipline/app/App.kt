@@ -42,7 +42,11 @@ object AppGraph {
 
     val database: AppDatabase by lazy {
         Room.databaseBuilder(appContext, AppDatabase::class.java, "san_jie_san_xiu.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+            )
             .build()
     }
 

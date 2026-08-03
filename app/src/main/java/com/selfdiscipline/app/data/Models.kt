@@ -49,4 +49,6 @@ data class DailyRecord(
     val chengMask: Int = 0,
     val heMask: Int = 0,
     val qinMask: Int = 0,
+    /** 是否为 60 分旧制记录（迁移时标记）；旧记录总分按 60→100 等比折算展示 */
+    val legacy: Boolean = false,
 )

@@ -87,7 +87,14 @@ object Metrics {
         else -> bitScore(maskOf(category)(record), criteria.getValue(category))
     }
 
-    fun total(record: DailyRecord): Int = Category.entries.sumOf { score(it, record) }
+    /**
+     * 总分。旧制（60 分）记录按 60→100 等比折算展示：
+     * 例如旧 54/60 显示为 90/100，四德按 0 分计。
+     */
+    fun total(record: DailyRecord): Int {
+        val sum = Category.entries.sumOf { score(it, record) }
+        return if (record.legacy) (sum * 100 / 60).coerceAtMost(100) else sum
+    }
 
     /** 某一分组（三戒 / 三修 / 四德）的小计 */
     fun groupTotal(record: DailyRecord, group: Group): Int =

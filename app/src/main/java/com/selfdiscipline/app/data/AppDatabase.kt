@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [DailyRecord::class, AiChatLog::class, CustomAchievement::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -17,13 +17,25 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
 
-        /** v2 → v3：新增四德（孝/诚/和/勤）四个掩码列，默认 0（旧记录总分不变） */
+        /** v2 → v3：新增四德（孝/诚/和/勤）四个掩码列（旧记录默认 0） */
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE daily_record ADD COLUMN xiaoMask INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE daily_record ADD COLUMN chengMask INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE daily_record ADD COLUMN heMask INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE daily_record ADD COLUMN qinMask INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
+         * v3 → v4：新增旧制标记列，把迁移瞬间的现存记录标记为 60 分旧制
+         * （用于总分 60→100 等比折算展示）。迁移过程中没有新记录写入，
+         * 因此升级时现存记录均为旧制，标记准确。
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE daily_record ADD COLUMN legacy INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE daily_record SET legacy = 1")
             }
         }
 

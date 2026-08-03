@@ -196,7 +196,7 @@ fun HistoryScreen(
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "点击任意日期可查看或补录",
+                    "点击任意日期可查看历史与 AI 评价",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
