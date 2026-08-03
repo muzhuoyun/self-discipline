@@ -31,6 +31,7 @@ private const val ROUTE_ACHIEVEMENTS = "achievements"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_REPORT_HISTORY = "report_history"
 private const val ROUTE_DETAIL = "detail/{date}/{category}"
+private const val ROUTE_DAY = "day/{date}"
 
 @Composable
 fun AppRoot(vm: MainViewModel = viewModel()) {
@@ -38,7 +39,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val onMainScreen = currentRoute != ROUTE_DETAIL && currentRoute != ROUTE_SETTINGS &&
-        currentRoute != ROUTE_REPORT_HISTORY
+        currentRoute != ROUTE_REPORT_HISTORY && currentRoute != ROUTE_DAY
 
     Scaffold(
         bottomBar = {
@@ -79,7 +80,21 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                     },
                     onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                     onOpenReportHistory = { navController.navigate(ROUTE_REPORT_HISTORY) },
+                    onOpenDay = { date -> navController.navigate("day/$date") },
                 )
+            }
+            composable(ROUTE_DAY) { entry ->
+                val date = entry.arguments?.getString("date")
+                if (date != null) {
+                    DayDetailScreen(
+                        vm = vm,
+                        date = LocalDate.parse(date),
+                        onBack = { navController.popBackStack() },
+                        onEditCategory = { d, category ->
+                            navController.navigate("detail/$d/${category.key}")
+                        },
+                    )
+                }
             }
             composable(ROUTE_REPORT_HISTORY) {
                 ReportHistoryScreen(vm = vm, onBack = { navController.popBackStack() })

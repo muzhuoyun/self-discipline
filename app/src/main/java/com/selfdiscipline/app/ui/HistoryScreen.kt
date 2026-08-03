@@ -86,6 +86,7 @@ fun HistoryScreen(
     onEditCategory: (LocalDate, Category) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenReportHistory: () -> Unit,
+    onOpenDay: (LocalDate) -> Unit,
 ) {
     val records by vm.records.collectAsState()
     val weeklyState by vm.weekly.collectAsState()
@@ -94,7 +95,6 @@ fun HistoryScreen(
     val monthlyLabel by vm.monthlyLabel.collectAsState()
     val byDate = records.associateBy { it.date }
     var month by remember { mutableStateOf(YearMonth.now()) }
-    var dialogDate by remember { mutableStateOf<LocalDate?>(null) }
 
     Column(
         modifier = Modifier
@@ -180,7 +180,7 @@ fun HistoryScreen(
                                             date = date,
                                             record = byDate[date.toString()],
                                             isToday = date == LocalDate.now(),
-                                            onClick = { dialogDate = date },
+                                            onClick = { onOpenDay(date) },
                                         )
                                     }
                                 }
@@ -270,19 +270,6 @@ fun HistoryScreen(
             }
         }
         Spacer(Modifier.height(16.dp))
-    }
-
-    dialogDate?.let { d ->
-        DayDetailDialog(
-            vm = vm,
-            date = d,
-            record = byDate[d.toString()],
-            onPick = { category ->
-                dialogDate = null
-                onEditCategory(d, category)
-            },
-            onDismiss = { dialogDate = null },
-        )
     }
 }
 
@@ -593,119 +580,3 @@ private fun LegendItem(label: String, range: IntRange) {
 }
 
 /** 某一天的详情弹窗：六类得分一览，点任意一项进入编辑 */
-@Composable
-private fun DayDetailDialog(
-    vm: MainViewModel,
-    date: LocalDate,
-    record: DailyRecord?,
-    onPick: (Category) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val aiChats by vm.aiChats.collectAsState()
-    val today = LocalDate.now()
-    val isToday = date == today
-    // 过去 = 已归档；未来 = 再等 N 天
-    val statusHint = when {
-        date.isBefore(today) -> "🗂 已归档 · 只能查看，不能修改或补录"
-        date.isAfter(today) ->
-            "⏳ 还没到 · 再等 ${ChronoUnit.DAYS.between(today, date)} 天再来打卡"
-        else -> null
-    }
-    // 该日期的 AI 打卡评价（每天只保留一份）
-    val review = aiChats.lastOrNull {
-        it.kind == AiKinds.REVIEW && it.date == date.toString()
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("${date.monthValue}月${date.dayOfMonth}日 · ${date.weekdayCn}") },
-        text = {
-            Column {
-                statusHint?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                }
-                if (record == null) {
-                    Text(
-                        if (isToday) "今天还没有打分，点下面的项目开始。"
-                        else "这一天没有打分记录。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                } else {
-                    val total = Metrics.total(record)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "总分 $total / 100",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = statusLevel(total).color,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        StarRow(total / 6, fontSize = 10.sp)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                }
-                // 该日期的 AI 教练评价
-                review?.let { r ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(10.dp),
-                    ) {
-                        Column(Modifier.padding(10.dp)) {
-                            Text(
-                                "🤖 教练点评",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                r.response,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                }
-                Category.entries.forEach { category ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { if (isToday) onPick(category) }
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                category.title,
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                            StarRow(record?.let { Metrics.score(category, it) } ?: 0, fontSize = 10.sp)
-                        }
-                        Text(
-                            "${Metrics.score(category, record ?: DailyRecord(date.toString()))} / 10",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Icon(
-                            Icons.Filled.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
-        },
-    )
-}
