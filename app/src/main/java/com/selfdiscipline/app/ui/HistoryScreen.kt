@@ -189,10 +189,10 @@ fun HistoryScreen(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    LegendItem("精进", 55..60)
-                    LegendItem("良好", 45..54)
-                    LegendItem("待提升", 35..44)
-                    LegendItem("调整", 0..34)
+                    LegendItem("精进", 85..100)
+                    LegendItem("良好", 70..84)
+                    LegendItem("待提升", 55..69)
+                    LegendItem("调整", 0..54)
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -349,13 +349,17 @@ private fun ReportText(label: String, text: String, footer: String? = null) {
 
 /** 可查看趋势的指标 */
 enum class TrendMetric(val label: String, val max: Int, val value: (DailyRecord) -> Int) {
-    TOTAL("总分", 60, { Metrics.total(it) }),
+    TOTAL("总分", 100, { Metrics.total(it) }),
     JIE_YIN("戒淫", 10, { Metrics.score(Category.JIE_YIN, it) }),
     JIE_CHAN("戒馋", 10, { Metrics.score(Category.JIE_CHAN, it) }),
     JIE_TAN("戒贪", 10, { Metrics.score(Category.JIE_TAN, it) }),
     XIU_YANG("修养", 10, { Metrics.score(Category.XIU_YANG, it) }),
     XIU_TI("修体", 10, { Metrics.score(Category.XIU_TI, it) }),
     XIU_XING("修行", 10, { Metrics.score(Category.XIU_XING, it) }),
+    XIAO("孝", 10, { Metrics.score(Category.XIAO, it) }),
+    CHENG("诚", 10, { Metrics.score(Category.CHENG, it) }),
+    HE("和", 10, { Metrics.score(Category.HE, it) }),
+    QIN("勤", 10, { Metrics.score(Category.QIN, it) }),
 }
 
 @Composable
@@ -370,7 +374,7 @@ private fun TrendSection(vm: MainViewModel, records: List<DailyRecord>) {
     }
     val values = points.filterNotNull()
     val average: Double? = if (values.isEmpty()) null else values.average()
-    val target = if (metric == TrendMetric.TOTAL) 50 else 8
+    val target = if (metric == TrendMetric.TOTAL) 75 else 8
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -636,7 +640,7 @@ private fun DayDetailDialog(
                     val total = Metrics.total(record)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "总分 $total / 60",
+                            "总分 $total / 100",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = statusLevel(total).color,

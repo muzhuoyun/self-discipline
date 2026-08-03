@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.selfdiscipline.app.ai.AiStreamState
 import com.selfdiscipline.app.data.Category
 import com.selfdiscipline.app.data.DailyRecord
+import com.selfdiscipline.app.data.Group
 import com.selfdiscipline.app.data.Metrics
 import com.selfdiscipline.app.logic.AchievementEngine
 import com.selfdiscipline.app.logic.Summary
@@ -74,7 +75,7 @@ fun HomeScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "三戒三修",
+                    "三戒 · 三修 · 四德",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -116,7 +117,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     Text(
-                        " / 60",
+                        " / 100",
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                     )
@@ -143,7 +144,7 @@ fun HomeScreen(
                 }
                 Spacer(Modifier.height(12.dp))
                 LinearProgressIndicator(
-                    progress = { total / 60f },
+                    progress = { total / 100f },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
@@ -241,16 +242,13 @@ fun HomeScreen(
             }
         }
 
-        // 三戒
-        SectionHeader("三戒", Metrics.groupTotal(record, jie = true), 30)
-        Category.entries.filter { it.isJie }.forEach { category ->
-            CategoryRow(category = category, record = record, onClick = { onCategoryClick(category) })
-        }
-
-        // 三修
-        SectionHeader("三修", Metrics.groupTotal(record, jie = false), 30)
-        Category.entries.filter { !it.isJie }.forEach { category ->
-            CategoryRow(category = category, record = record, onClick = { onCategoryClick(category) })
+        // 三戒 / 三修 / 四德
+        Group.entries.forEach { group ->
+            val max = Category.entries.count { it.group == group } * 10
+            SectionHeader(group.title, Metrics.groupTotal(record, group), max)
+            Category.entries.filter { it.group == group }.forEach { category ->
+                CategoryRow(category = category, record = record, onClick = { onCategoryClick(category) })
+            }
         }
 
         Text(

@@ -16,7 +16,8 @@ import org.json.JSONObject
 object AiPrompts {
 
     private const val ROLE =
-        "你是一位温和、真诚的修身教练，陪伴用户践行「三戒三修」（戒淫、戒馋、戒贪；修养、修体、修行）。" +
+        "你是一位温和、真诚的修身教练，陪伴用户践行「三戒三修四德」" +
+            "（戒淫、戒馋、戒贪；修养、修体、修行；孝、诚、和、勤）。" +
             "你只基于用户提供的数据说话，不评判、不指责，像朋友一样给出鼓励与具体建议。"
 
     // ---------- 今日打卡短评 ----------
@@ -45,7 +46,7 @@ object AiPrompts {
             }
             sb.append("\n")
         }
-        sb.append("总分：${Metrics.total(record)} / 60\n")
+        sb.append("总分：${Metrics.total(record)} / 100\n")
         sb.append("规则总结：$ruleSummary")
         return sb.toString()
     }
@@ -129,9 +130,9 @@ object AiPrompts {
     fun achievementSystem(): String = "$ROLE\n" +
         "根据用户的历史表现数据，设计 1~3 个更有挑战性的新成就（要比用户已有的成就更难）。\n" +
         "成就必须是「通过每日记录数据可查询」的，只能使用以下受控字段：\n" +
-        "- metric：指标，只能是 TOTAL（总分）、JIE_YIN、JIE_CHAN、JIE_TAN、XIU_YANG、XIU_TI、XIU_XING 之一\n" +
+        "- metric：指标，只能是 TOTAL（总分）、JIE_YIN、JIE_CHAN、JIE_TAN、XIU_YANG、XIU_TI、XIU_XING、XIAO（孝）、CHENG（诚）、HE（和）、QIN（勤）之一\n" +
         "- window：STREAK = 连续 N 天达标；CUMULATIVE = 累计 N 天达标\n" +
-        "- target_value：达标阈值（metric 为 TOTAL 时 0~60，其他 0~10）\n" +
+        "- target_value：达标阈值（metric 为 TOTAL 时 0~100，其他 0~10）\n" +
         "- window_days：周期天数（1~365）\n" +
         "只输出 JSON，不要代码块、不要其他文字：\n" +
         "{\"achievements\":[{\"emoji\":\"🔥\",\"title\":\"成就名（12字内）\",\"description\":\"一句话描述\",\"metric\":\"JIE_CHAN\",\"window\":\"STREAK\",\"target_value\":10,\"window_days\":5}]}"
@@ -147,7 +148,7 @@ object AiPrompts {
         }
         if (records.isNotEmpty()) {
             val totals = records.map { Metrics.total(it) }
-            sb.append("- 总分：平均 ${"%.1f".format(totals.average())}，最高 ${totals.max()}，≥50分 ${totals.count { it >= 50 }} 天\n")
+            sb.append("- 总分：平均 ${"%.1f".format(totals.average())}，最高 ${totals.max()}，≥75分 ${totals.count { it >= 75 }} 天\n")
         }
         sb.append("\n已有成就：${currentTitles.joinToString("、")}\n")
         sb.append("请设计比这些更难的新成就。")
@@ -216,12 +217,15 @@ object AiPrompts {
 
     private fun parseOne(item: JSONObject): AchievementSpec? {
         val metric = item.optString("metric").uppercase()
-        val validMetrics = setOf("TOTAL", "JIE_YIN", "JIE_CHAN", "JIE_TAN", "XIU_YANG", "XIU_TI", "XIU_XING")
+        val validMetrics = setOf(
+            "TOTAL", "JIE_YIN", "JIE_CHAN", "JIE_TAN", "XIU_YANG", "XIU_TI", "XIU_XING",
+            "XIAO", "CHENG", "HE", "QIN",
+        )
         if (metric !in validMetrics) return null
         val window = item.optString("window").uppercase()
         if (window !in setOf("STREAK", "CUMULATIVE")) return null
         val value = item.optInt("target_value", -1)
-        val max = if (metric == "TOTAL") 60 else 10
+        val max = if (metric == "TOTAL") 100 else 10
         if (value < 0 || value > max) return null
         val days = item.optInt("window_days", 0)
         if (days !in 1..365) return null

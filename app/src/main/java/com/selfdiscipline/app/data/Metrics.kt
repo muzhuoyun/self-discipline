@@ -7,9 +7,9 @@ data class Criterion(val label: String, val points: Int)
 data class JieYinLevel(val score: Int, val description: String)
 
 /**
- * 三戒三修的评分规则（满分 60）。
+ * 三戒三修四德的评分规则（满分 100）。
  *
- * 戒淫：单选等级。其余五类：逐项勾选，选中即得对应分值。
+ * 戒淫：单选等级。其余九类：逐项勾选，选中即得对应分值。
  */
 object Metrics {
 
@@ -49,6 +49,30 @@ object Metrics {
             Criterion("今天创造了实际价值", 2),
             Criterion("空想时间在目标范围内", 2),
         ),
+        Category.XIAO to listOf(
+            Criterion("关心问候父母", 3),
+            Criterion("及时联系陪伴", 3),
+            Criterion("体谅分担", 2),
+            Criterion("虚心听劝", 2),
+        ),
+        Category.CHENG to listOf(
+            Criterion("不欺骗他人", 3),
+            Criterion("言出必行", 3),
+            Criterion("守约守时", 2),
+            Criterion("不自欺", 2),
+        ),
+        Category.HE to listOf(
+            Criterion("待人温和有礼", 3),
+            Criterion("换位思考", 3),
+            Criterion("不抱怨不指责", 2),
+            Criterion("懂得感恩", 2),
+        ),
+        Category.QIN to listOf(
+            Criterion("尽职尽责", 3),
+            Criterion("今日事今日毕", 3),
+            Criterion("主动担当", 2),
+            Criterion("不拖沓", 2),
+        ),
     )
 
     /** 单类指标满分 */
@@ -65,9 +89,9 @@ object Metrics {
 
     fun total(record: DailyRecord): Int = Category.entries.sumOf { score(it, record) }
 
-    /** 三戒或三修的小计 */
-    fun groupTotal(record: DailyRecord, jie: Boolean): Int =
-        Category.entries.filter { it.isJie == jie }.sumOf { score(it, record) }
+    /** 某一分组（三戒 / 三修 / 四德）的小计 */
+    fun groupTotal(record: DailyRecord, group: Group): Int =
+        Category.entries.filter { it.group == group }.sumOf { score(it, record) }
 
     private fun maskOf(category: Category): (DailyRecord) -> Int = { r ->
         when (category) {
@@ -76,6 +100,10 @@ object Metrics {
             Category.XIU_YANG -> r.xiuYangMask
             Category.XIU_TI -> r.xiuTiMask
             Category.XIU_XING -> r.xiuXingMask
+            Category.XIAO -> r.xiaoMask
+            Category.CHENG -> r.chengMask
+            Category.HE -> r.heMask
+            Category.QIN -> r.qinMask
             Category.JIE_YIN -> 0
         }
     }
@@ -94,6 +122,10 @@ fun DailyRecord.withCriterion(category: Category, index: Int, checked: Boolean):
         Category.XIU_YANG -> copy(xiuYangMask = if (checked) xiuYangMask or bit else xiuYangMask and bit.inv())
         Category.XIU_TI -> copy(xiuTiMask = if (checked) xiuTiMask or bit else xiuTiMask and bit.inv())
         Category.XIU_XING -> copy(xiuXingMask = if (checked) xiuXingMask or bit else xiuXingMask and bit.inv())
+        Category.XIAO -> copy(xiaoMask = if (checked) xiaoMask or bit else xiaoMask and bit.inv())
+        Category.CHENG -> copy(chengMask = if (checked) chengMask or bit else chengMask and bit.inv())
+        Category.HE -> copy(heMask = if (checked) heMask or bit else heMask and bit.inv())
+        Category.QIN -> copy(qinMask = if (checked) qinMask or bit else qinMask and bit.inv())
         Category.JIE_YIN -> this
     }
 }

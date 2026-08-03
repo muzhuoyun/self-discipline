@@ -47,8 +47,8 @@ val ACHIEVEMENTS = listOf(
     AchievementDef("📚", "修行连续 7 天 ≥8 分", "实干连续 7 天", Condition.Streak(7) {
         Metrics.score(Category.XIU_XING, it) >= 8
     }),
-    AchievementDef("👑", "总分连续 7 天 ≥50", "总分保持一周 50 以上", Condition.Streak(7) {
-        Metrics.total(it) >= 50
+    AchievementDef("👑", "总分连续 7 天 ≥75", "总分保持一周精进日水准", Condition.Streak(7) {
+        Metrics.total(it) >= 75
     }),
     AchievementDef("🏆", "单日满分", "某一天拿到 60 分满分", Condition.Streak(1) {
         Metrics.total(it) == 60
@@ -156,7 +156,10 @@ fun AchievementSpec.toAchievementDef(): AchievementDef {
 
 /** 数据库里的自定义成就 → 可评估的成就定义 */
 fun CustomAchievement.toAchievementDef(): AchievementDef? {
-    val validMetrics = setOf("TOTAL", "JIE_YIN", "JIE_CHAN", "JIE_TAN", "XIU_YANG", "XIU_TI", "XIU_XING")
+    val validMetrics = setOf(
+        "TOTAL", "JIE_YIN", "JIE_CHAN", "JIE_TAN", "XIU_YANG", "XIU_TI", "XIU_XING",
+        "XIAO", "CHENG", "HE", "QIN",
+    )
     if (metric.uppercase() !in validMetrics) return null
     if (window.uppercase() !in setOf("STREAK", "CUMULATIVE")) return null
     return AchievementSpec(

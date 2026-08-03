@@ -38,15 +38,15 @@ import java.time.LocalDate
 val LocalDate.weekdayCn: String
     get() = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[dayOfWeek.value - 1]
 
-/** 日历色：🟢 55~60 · 🟡 45~54 · 🟠 35~44 · 🔴 <35 */
+/** 日历色：🟢 85~100 · 🟡 70~84 · 🟠 55~69 · 🔴 <55 */
 fun calendarColor(total: Int): Color = when {
-    total >= 55 -> Color(0xFF43A047)
-    total >= 45 -> Color(0xFFF9A825)
-    total >= 35 -> Color(0xFFFB8C00)
+    total >= 85 -> Color(0xFF43A047)
+    total >= 70 -> Color(0xFFF9A825)
+    total >= 55 -> Color(0xFFFB8C00)
     else -> Color(0xFFE53935)
 }
 
-/** 三档状态：🔴 0~29 调整日 · 🟡 30~44 合格日 · 🟢 45~60 精进日 */
+/** 三档状态：🔴 0~49 调整日 · 🟡 50~74 合格日 · 🟢 75~100 精进日 */
 enum class StatusLevel(val label: String, val color: Color) {
     GREEN("精进日", Color(0xFF2E7D32)),
     YELLOW("合格日", Color(0xFFF9A825)),
@@ -54,8 +54,8 @@ enum class StatusLevel(val label: String, val color: Color) {
 }
 
 fun statusLevel(total: Int): StatusLevel = when {
-    total >= 45 -> StatusLevel.GREEN
-    total >= 30 -> StatusLevel.YELLOW
+    total >= 75 -> StatusLevel.GREEN
+    total >= 50 -> StatusLevel.YELLOW
     else -> StatusLevel.RED
 }
 

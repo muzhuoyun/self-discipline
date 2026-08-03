@@ -102,7 +102,7 @@ fun CategoryDetailScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    if (category.isJie) "三戒" else "三修",
+                    category.group.title,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

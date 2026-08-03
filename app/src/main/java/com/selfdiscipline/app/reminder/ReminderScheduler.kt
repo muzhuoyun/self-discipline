@@ -23,7 +23,7 @@ object ReminderScheduler {
             "打卡提醒",
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "每天定时提醒你为三戒三修打卡"
+            description = "每天定时提醒你为三戒三修四德打卡"
         }
         nm.createNotificationChannel(channel)
     }
