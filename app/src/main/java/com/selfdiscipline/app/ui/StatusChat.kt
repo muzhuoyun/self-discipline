@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -205,14 +206,16 @@ fun StatusChat(vm: MainViewModel, modifier: Modifier = Modifier) {
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // 输入框与右侧按钮等高的固定高度（56dp），视觉对齐
+                    // 输入框：单行时与按钮等高（56dp），随输入自动增高，上限 3 行
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it },
                         placeholder = { Text("写下今天的感受…（可选照片）") },
-                        modifier = Modifier.weight(1f).height(56.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 56.dp, max = 112.dp),
                         minLines = 1,
-                        maxLines = 2,
+                        maxLines = 3,
                     )
                     IconButton(
                         onClick = { pickLauncher.launch("image/*") },
