@@ -210,7 +210,7 @@ fun StatusChat(vm: MainViewModel, modifier: Modifier = Modifier) {
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it },
-                        placeholder = { Text("写下今天的感受…（可选照片）") },
+                        placeholder = { Text("记录今天的感受…") },
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = 56.dp, max = 112.dp),
