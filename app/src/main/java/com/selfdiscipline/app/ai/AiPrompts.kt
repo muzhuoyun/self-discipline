@@ -82,18 +82,29 @@ object AiPrompts {
             .joinToString("\n") { "- $it" }
     }
 
-    /** 每日状态记录的文字摘要，作为点评 / 周报 / 月报的上下文参考 */
+    /**
+     * 每日状态对话摘要（用户状态 + AI 医生回复），
+     * 作为点评 / 周报 / 月报的上下文参考。
+     */
     fun statusLogsContext(logs: List<DailyLog>): String {
         if (logs.isEmpty()) return ""
-        val sb = StringBuilder("用户状态记录（用户自己写下的当日感受，请作为参考）：\n")
+        val sb = StringBuilder("用户状态对话记录（用户写下的感受与 AI 医生的回应，请作为参考）：\n")
         logs.groupBy { it.date }.entries.sortedBy { it.key }.forEach { (date, dayLogs) ->
             val d = runCatching { LocalDate.parse(date) }.getOrNull()
             val label = if (d != null) "${d.monthValue}月${d.dayOfMonth}日" else date
-            val texts = dayLogs.mapNotNull { it.text.trim().takeIf { t -> t.isNotBlank() } }
-                .map { it.take(60) }
-            if (texts.isNotEmpty()) {
+            val entries = dayLogs.mapNotNull { log ->
+                val t = log.text.trim().takeIf { it.isNotBlank() }?.take(60)
+                val r = log.doctorReply.trim().takeIf { it.isNotBlank() }?.take(60)
+                when {
+                    t != null && r != null -> "$t（AI 医生回应：$r）"
+                    t != null -> t
+                    r != null -> "（AI 医生回应：$r）"
+                    else -> null
+                }
+            }
+            if (entries.isNotEmpty()) {
                 sb.append("- $label：")
-                sb.append(texts.joinToString("；"))
+                sb.append(entries.joinToString("；"))
                 sb.append("\n")
             }
         }

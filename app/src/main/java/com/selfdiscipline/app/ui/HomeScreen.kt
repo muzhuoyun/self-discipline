@@ -233,16 +233,8 @@ private fun CheckInTab(
 /** 状态标签：今日状态记录 + AI 健康顾问 */
 @Composable
 private fun StatusTab(vm: MainViewModel) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Spacer(Modifier.height(8.dp))
-        DailyLogCard(vm = vm)
-        Spacer(Modifier.height(16.dp))
+    Column(Modifier.fillMaxSize()) {
+        StatusChat(vm = vm)
     }
 }
 
@@ -272,15 +264,26 @@ private fun ReviewCard(vm: MainViewModel, modifier: Modifier = Modifier) {
                     )
                 }
                 reviewState is AiStreamState.Idle -> {
-                    Text(
-                        ruleSummary,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = { vm.checkIn() }, modifier = Modifier.fillMaxWidth()) {
-                        Text("💪 打卡，听听 AI 教练的点评")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🚫", fontSize = 18.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "未打卡",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Button(onClick = { vm.checkIn() }) {
+                            Text("💪 打卡")
+                        }
                     }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "点击打卡，AI 教练结合今天的评分与状态生成评价",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                    )
                 }
                 reviewState is AiStreamState.Loading -> {
                     ReviewHeader("AI 教练点评中…")
