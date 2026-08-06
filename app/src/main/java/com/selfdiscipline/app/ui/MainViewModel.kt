@@ -14,18 +14,23 @@ import com.selfdiscipline.app.data.AiKinds
 import com.selfdiscipline.app.data.AiChatLog
 import com.selfdiscipline.app.data.Category
 import com.selfdiscipline.app.data.CustomAchievement
+import com.selfdiscipline.app.data.DailyLog
 import com.selfdiscipline.app.data.DailyRecord
+import com.selfdiscipline.app.data.LogPhotoStore
 import com.selfdiscipline.app.data.Metrics
 import com.selfdiscipline.app.data.withCriterion
 import com.selfdiscipline.app.data.withJieYin
 import com.selfdiscipline.app.logic.AchievementEngine
 import com.selfdiscipline.app.logic.Summary
 import com.selfdiscipline.app.logic.toAchievementDef
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.LocalDate
 
 /** 唯一的 ViewModel：数据量小，全量记录放在内存里即可 */
@@ -37,6 +42,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val records: StateFlow<List<DailyRecord>> = repo.records
     val aiChats: StateFlow<List<AiChatLog>> = repo.aiChats
     val customAchievements: StateFlow<List<CustomAchievement>> = repo.customAchievements
+    val dailyLogs: StateFlow<List<DailyLog>> = repo.dailyLogs
 
     // ---- AI 流式状态 ----
     private val _review = MutableStateFlow<AiStreamState>(AiStreamState.Idle)
@@ -124,17 +130,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------- 今日打卡短评 ----------
 
-    /** 打卡评价：每天只保留最新一份，重新评价时覆盖旧的 */
+    /** 打卡评价：每天只保留最新一份，重新评价时覆盖旧的；当天 AI 判断对话作为上下文 */
     fun checkIn() = viewModelScope.launch {
         // 先删除当天旧的评价记录（覆盖而不是累积）
         repo.deleteReviewFor(LocalDate.now().toString())
         val today = LocalDate.now()
         val record = recordAt(today) ?: DailyRecord(date = today.toString())
         val ruleSummary = Summary.of(record, null)
+        // 当天的 AI 判断对话作为点评参考
+        val dialogue = AiPrompts.dialogueContext(
+            aiChats.value.filter { it.date == today.toString() }
+        )
         stream(
             kind = AiKinds.REVIEW,
             system = AiPrompts.reviewSystem(),
-            user = AiPrompts.reviewUser(record, ruleSummary),
+            user = AiPrompts.reviewUser(record, ruleSummary, dialogue),
             state = _review,
         )
     }
@@ -211,10 +221,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val (start, end, label) = lastWeekRange(LocalDate.now())
         _weeklyLabel.value = label
         val records = records.value.filter { it.date >= start.toString() && it.date <= end.toString() }
+        // 周期内的 AI 判断对话作为报告参考
+        val dialogue = AiPrompts.dialogueContext(
+            aiChats.value.filter { it.date >= start.toString() && it.date <= end.toString() }
+        )
         stream(
             kind = AiKinds.WEEKLY,
             system = AiPrompts.weeklySystem(),
-            user = "报告范围：$start ~ $end\n" + AiPrompts.weeklyUser(records),
+            user = "报告范围：$start ~ $end\n" + AiPrompts.weeklyUser(records, dialogue),
             state = _weekly,
         )
     }
@@ -223,10 +237,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val (start, end, label) = lastMonthRange(LocalDate.now())
         _monthlyLabel.value = label
         val records = records.value.filter { it.date >= start.toString() && it.date <= end.toString() }
+        val dialogue = AiPrompts.dialogueContext(
+            aiChats.value.filter { it.date >= start.toString() && it.date <= end.toString() }
+        )
         stream(
             kind = AiKinds.MONTHLY,
             system = AiPrompts.monthlySystem(),
-            user = "报告范围：$start ~ $end\n" + AiPrompts.monthlyUser(records),
+            user = "报告范围：$start ~ $end\n" + AiPrompts.monthlyUser(records, dialogue),
             state = _monthly,
         )
     }
@@ -263,8 +280,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _monthly.value = AiStreamState.Idle
     }
 
-    /** 清空所有用户数据（打卡 + AI 交互 + AI 成就） */
+    /** 清空所有用户数据（打卡 + AI 交互 + AI 成就 + 状态记录） */
     fun clearAllData() = viewModelScope.launch {
+        LogPhotoStore.deleteAllPhotos(getApplication())
         repo.clearAll()
         _autoCheckSessions.value = emptyMap()
         _autoCheck.value = AiStreamState.Idle
@@ -274,6 +292,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _review.value = AiStreamState.Idle
         _suggest.value = AiStreamState.Idle
         _suggestSummary.value = null
+    }
+
+    // ---------- 每日状态记录（文字 + 照片，照片纯本地） ----------
+
+    fun dailyLogAt(date: LocalDate): DailyLog? =
+        dailyLogs.value.firstOrNull { it.date == date.toString() }
+
+    /**
+     * 保存状态记录。编辑场景：保留已有照片、删除被移除的照片、压缩复制新增照片。
+     */
+    fun saveDailyLog(
+        date: LocalDate,
+        text: String,
+        keepPaths: List<String>,
+        removePaths: List<String>,
+        newPhotos: List<android.net.Uri>,
+    ) = viewModelScope.launch {
+        val dateStr = date.toString()
+        withContext(Dispatchers.IO) {
+            removePaths.forEach { runCatching { File(it).delete() } }
+        }
+        val newPaths = withContext(Dispatchers.IO) {
+            LogPhotoStore.savePhotos(getApplication(), dateStr, newPhotos)
+        }
+        repo.saveDailyLog(
+            DailyLog(
+                date = dateStr,
+                text = text.trim(),
+                photoPaths = (keepPaths + newPaths).joinToString(","),
+            )
+        )
+    }
+
+    /** 删除某天状态记录（连同照片文件） */
+    fun deleteDailyLog(date: LocalDate) = viewModelScope.launch {
+        LogPhotoStore.deletePhotosFor(getApplication(), date.toString())
+        repo.deleteDailyLog(date.toString())
+    }
+
+    /** 删除全部状态记录（连同照片文件） */
+    fun clearAllDailyLogs() = viewModelScope.launch {
+        LogPhotoStore.deleteAllPhotos(getApplication())
+        repo.clearDailyLogs()
     }
 
     // ---------- AI 添加成就 ----------

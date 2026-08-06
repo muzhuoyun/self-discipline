@@ -12,6 +12,7 @@ class RecordRepository(
     private val dao: DailyRecordDao,
     private val aiChatDao: AiChatDao,
     private val customAchievementDao: CustomAchievementDao,
+    private val dailyLogDao: DailyLogDao,
 ) {
 
     private val _records = MutableStateFlow<List<DailyRecord>>(emptyList())
@@ -23,10 +24,14 @@ class RecordRepository(
     private val _customAchievements = MutableStateFlow<List<CustomAchievement>>(emptyList())
     val customAchievements: StateFlow<List<CustomAchievement>> = _customAchievements.asStateFlow()
 
+    private val _dailyLogs = MutableStateFlow<List<DailyLog>>(emptyList())
+    val dailyLogs: StateFlow<List<DailyLog>> = _dailyLogs.asStateFlow()
+
     suspend fun refresh() {
         _records.value = dao.getAll()
         _aiChats.value = aiChatDao.getAll()
         _customAchievements.value = customAchievementDao.getAll()
+        _dailyLogs.value = dailyLogDao.getAll()
     }
 
     suspend fun save(record: DailyRecord) {
@@ -72,6 +77,25 @@ class RecordRepository(
         aiChatDao.deleteAll()
         customAchievementDao.deleteAll()
         refresh()
+    }
+
+    // ---------- 每日状态记录 ----------
+
+    suspend fun saveDailyLog(log: DailyLog) {
+        dailyLogDao.upsert(log)
+        _dailyLogs.value = dailyLogDao.getAll()
+    }
+
+    /** 删除某天状态记录（照片文件由调用方清理） */
+    suspend fun deleteDailyLog(date: String) {
+        dailyLogDao.deleteByDate(date)
+        _dailyLogs.value = dailyLogDao.getAll()
+    }
+
+    /** 删除全部状态记录（照片文件由调用方清理） */
+    suspend fun clearDailyLogs() {
+        dailyLogDao.deleteAll()
+        _dailyLogs.value = emptyList()
     }
 
     suspend fun addCustomAchievements(items: List<CustomAchievement>) {

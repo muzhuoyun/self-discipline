@@ -6,14 +6,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [DailyRecord::class, AiChatLog::class, CustomAchievement::class],
-    version = 4,
+    entities = [DailyRecord::class, AiChatLog::class, CustomAchievement::class, DailyLog::class],
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dailyRecordDao(): DailyRecordDao
     abstract fun aiChatDao(): AiChatDao
     abstract fun customAchievementDao(): CustomAchievementDao
+    abstract fun dailyLogDao(): DailyLogDao
 
     companion object {
 
@@ -56,6 +57,18 @@ abstract class AppDatabase : RoomDatabase() {
                         "`metric` TEXT NOT NULL, `window` TEXT NOT NULL, " +
                         "`targetValue` INTEGER NOT NULL, `windowDays` INTEGER NOT NULL, " +
                         "`createdAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        /** v4 → v5：新增每日状态记录表（文字 + 照片路径） */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `daily_log` (" +
+                        "`date` TEXT NOT NULL, `text` TEXT NOT NULL, " +
+                        "`photoPaths` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`date`))"
                 )
             }
         }

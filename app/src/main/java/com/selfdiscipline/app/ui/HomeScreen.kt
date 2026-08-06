@@ -228,6 +228,9 @@ fun HomeScreen(
             }
         }
 
+        // 今日状态（文字 + 照片，纯本地）
+        DailyLogCard(vm = vm)
+
         if (todayRecord == null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),

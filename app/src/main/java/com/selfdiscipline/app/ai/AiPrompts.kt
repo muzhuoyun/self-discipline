@@ -1,11 +1,14 @@
 package com.selfdiscipline.app.ai
 
+import com.selfdiscipline.app.data.AiChatLog
+import com.selfdiscipline.app.data.AiKinds
 import com.selfdiscipline.app.data.Category
 import com.selfdiscipline.app.data.CustomAchievement
 import com.selfdiscipline.app.data.DailyRecord
 import com.selfdiscipline.app.data.Metrics
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
 
 /**
  * 各场景的 Prompt 构造，以及 AI 输出 → 结构化数据的解析与校验。
@@ -23,13 +26,13 @@ object AiPrompts {
     // ---------- 今日打卡短评 ----------
 
     fun reviewSystem(): String = "$ROLE\n" +
-        "请根据用户今天的评分数据写一段 60~90 字的短评。要求：\n" +
-        "1. 先肯定今天做得好的 1~2 点；\n" +
+        "请根据用户今天的评分数据和对话记录，写一段 150~250 字的短评。要求：\n" +
+        "1. 先肯定今天做得好的 1~2 点（可引用用户自己的话或对话细节）；\n" +
         "2. 再点出今天最值得改进的一项，并给出一个具体的、明天就能做的小建议；\n" +
         "3. 最后一句鼓励收尾；\n" +
-        "4. 不要使用列表或标题，直接一段话；语气亲切自然。"
+        "4. 不要使用列表或标题，直接一段话；语气亲切自然、言之有物，避免空话。"
 
-    fun reviewUser(record: DailyRecord, ruleSummary: String): String {
+    fun reviewUser(record: DailyRecord, ruleSummary: String, dialogue: String = ""): String {
         val sb = StringBuilder()
         sb.append("今天的评分数据：\n")
         Category.entries.forEach { c ->
@@ -47,7 +50,37 @@ object AiPrompts {
             sb.append("\n")
         }
         sb.append("总分：${Metrics.total(record)} / 100\n")
-        sb.append("规则总结：$ruleSummary")
+        sb.append("规则总结：$ruleSummary\n")
+        if (dialogue.isNotBlank()) sb.append(dialogue)
+        return sb.toString()
+    }
+
+    /**
+     * 用户与 AI 判断页的多轮对话摘要——比固定选项更能反映真实状态，
+     * 作为点评 / 周报 / 月报的上下文参考。
+     */
+    fun dialogueContext(logs: List<AiChatLog>): String {
+        if (logs.isEmpty()) return ""
+        val sb = StringBuilder("用户对话记录（比固定选项更能反映真实状态，请作为参考）：\n")
+        // 按日期分组，每天最多 2 轮
+        logs.filter { it.kind == AiKinds.AUTO_CHECK }
+            .sortedBy { it.createdAt }
+            .groupBy { it.date }
+            .entries
+            .sortedBy { it.key }
+            .forEach { (date, dayLogs) ->
+                dayLogs.take(2).forEach { log ->
+                    val userText = extractUserInput(log.prompt).trim().take(100)
+                    val aiReply = runCatching {
+                        extractJson(log.response)?.let { JSONObject(it).optString("reply") }
+                    }.getOrNull()?.trim()?.take(100)
+                    val d = runCatching { LocalDate.parse(date) }.getOrNull()
+                    val label = if (d != null) "${d.monthValue}月${d.dayOfMonth}日" else date
+                    sb.append("- $label（${log.categoryKey ?: ""}）：用户：$userText")
+                    if (!aiReply.isNullOrBlank()) sb.append("；AI：$aiReply")
+                    sb.append("\n")
+                }
+            }
         return sb.toString()
     }
 
@@ -59,13 +92,13 @@ object AiPrompts {
      */
     fun autoCheckLevelSystem(): String = "$ROLE\n" +
         "用户可能会说任何话：闲聊、提问、或者描述自己当天在「戒淫」方面的实际情况。请分两步：\n" +
-        "第一步（意图回应）：先用简短（60字内）友好的话直接回应或澄清用户的话。" +
+        "第一步（意图回应）：用友好、有温度的话回应或澄清用户的话（100~200 字，可适当展开、共情）。" +
         "如果用户只是聊天或提问，这一步就是全部，不要做任何判断。\n" +
         "第二步（等级判断）：只有用户确实描述了实际情况，才在四个等级中判断最贴近的一个：" +
         "10 分：无接触、无冲动，清净自在；8 分：有冲动，但成功克制；5 分：接触了一点，及时停止；0 分：完全放纵。" +
         "先抓住关键行为（有没有接触、有没有冲动、有没有成功克制），描述不足时选最保守（偏低）的等级。\n" +
         "输出格式（严格 JSON，reply 必须有，level 可有可无）：" +
-        "{\"reply\":\"先回应用户的话\",\"level\":8,\"reason\":\"判断理由（30字内）\"}"
+        "{\"reply\":\"先回应用户的话\",\"level\":8,\"reason\":\"判断理由（60~100字，讲清依据）\"}"
 
     /**
      * 多选（勾选类）提示词：先回应用户意图，有可判断的信息时再走两阶段判断
@@ -76,7 +109,7 @@ object AiPrompts {
             .withIndex().joinToString("\n") { "${it.index}. ${it.value.label}（${it.value.points}分）" }
         return "$ROLE\n" +
             "用户可能会说任何话：闲聊、提问、或者描述自己当天在「${category.title}」方面的实际情况。请分两步：\n" +
-            "第一步（意图回应）：先用简短（60字内）友好的话直接回应或澄清用户的话。" +
+            "第一步（意图回应）：用友好、有温度的话回应或澄清用户的话（100~200 字，可适当展开、共情）。" +
             "如果用户只是聊天或提问，这一步就是全部，不要做任何判断。\n" +
             "第二步（判断）：只有用户确实描述了实际情况，才判断。判断分两步：\n" +
             "  1）涉及识别：先判断描述涉及下面选项中的哪几个（可能一个，也可能多个）；\n" +
@@ -84,7 +117,7 @@ object AiPrompts {
             "规则：结果里只出现涉及到的选项；没提到的选项不要出现；模糊时宁可少判。\n" +
             "选项列表：\n$list\n" +
             "输出格式（严格 JSON，reply 必须有，items 可空）：" +
-            "{\"reply\":\"先回应用户的话\",\"items\":[{\"index\":0,\"checked\":true,\"reason\":\"简短理由（30字内）\"}]}"
+            "{\"reply\":\"先回应用户的话\",\"items\":[{\"index\":0,\"checked\":true,\"reason\":\"判断理由（60~100字，讲清依据）\"}]}"
     }
 
     fun autoCheckUser(category: Category, input: String): String =
@@ -97,23 +130,25 @@ object AiPrompts {
     // ---------- 周报 / 月报 ----------
 
     fun weeklySystem(): String = "$ROLE\n" +
-        "请根据用户本周（周一~今天）的评分记录写一份周报，300 字以内。分三段：\n" +
+        "请根据用户本周（周一~今天）的评分记录和对话记录写一份周报，500 字以内。分三段：\n" +
         "1. 本周总体表现（用数据说话：平均分、趋势）；\n" +
-        "2. 亮点与问题（哪项最稳、哪项波动最大）；\n" +
-        "3. 下周建议（1~2 条具体的、可执行的小目标）。\n" +
+        "2. 亮点与问题（哪项最稳、哪项波动最大，可引用用户自己说过的话）；\n" +
+        "3. 下周建议（2~3 条具体的、可执行的小目标）。\n" +
         "语气温和有力量，不要用 Markdown 标题。"
 
-    fun weeklyUser(records: List<DailyRecord>): String = recordsData(records)
+    fun weeklyUser(records: List<DailyRecord>, dialogue: String = ""): String =
+        recordsData(records) + if (dialogue.isNotBlank()) "\n$dialogue" else ""
 
     fun monthlySystem(): String = "$ROLE\n" +
-        "请根据用户本月（1 号~今天）的评分记录写一份月报，400 字以内。分四段：\n" +
-        "1. 本月总体表现（平均分、与上周/上月的对比如果有的话）；\n" +
+        "请根据用户本月（1 号~今天）的评分记录和对话记录写一份月报，800 字以内。分四段：\n" +
+        "1. 本月总体表现（平均分、趋势）；\n" +
         "2. 高光时刻（最好的几天、突破的项目）；\n" +
-        "3. 需要留意的规律（低分集中在什么场景/项目）；\n" +
+        "3. 需要留意的规律（低分集中在什么场景/项目，可引用用户自己说过的话）；\n" +
         "4. 下月建议（2~3 条）。\n" +
         "语气温和有力量，不要用 Markdown 标题。"
 
-    fun monthlyUser(records: List<DailyRecord>): String = recordsData(records)
+    fun monthlyUser(records: List<DailyRecord>, dialogue: String = ""): String =
+        recordsData(records) + if (dialogue.isNotBlank()) "\n$dialogue" else ""
 
     private fun recordsData(records: List<DailyRecord>): String {
         val sb = StringBuilder("逐日评分记录（总分/戒淫/戒馋/戒贪/修养/修体/修行）：\n")

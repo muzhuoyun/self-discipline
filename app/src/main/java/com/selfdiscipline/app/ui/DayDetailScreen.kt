@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -165,6 +166,41 @@ fun DayDetailScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            // 当日状态（文字 + 照片）
+            val log = vm.dailyLogs.value.firstOrNull { it.date == date.toString() }
+            if (log != null && (log.text.isNotBlank() || log.photoPaths.isNotBlank())) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(
+                            "📝 当日状态",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (log.text.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(log.text, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        val paths = log.photoPaths.split(",").filter { it.isNotBlank() }
+                        if (paths.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                paths.forEach { path ->
+                                    LocalPhoto(
+                                        path = path,
+                                        modifier = Modifier
+                                            .size(88.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // 十项一览

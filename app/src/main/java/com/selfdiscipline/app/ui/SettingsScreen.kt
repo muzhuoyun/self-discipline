@@ -206,6 +206,7 @@ fun SettingsScreen(vm: MainViewModel = viewModel(), onBack: () -> Unit) {
                 aiChatsCount = aiChats.size,
                 onClearAutoCheck = { vm.clearAllAutoCheck() },
                 onClearReports = { vm.clearAllReports() },
+                onClearLogs = { vm.clearAllDailyLogs() },
                 onClearAll = { vm.clearAllData() },
             )
 
@@ -272,15 +273,16 @@ private fun TimePickerDialog(
     )
 }
 
-/** 数据管理：三类删除，每次删除前都要确认 */
+/** 数据管理：删除功能，每次删除前都要确认 */
 @Composable
 private fun DataManagementCard(
     aiChatsCount: Int,
     onClearAutoCheck: () -> Unit,
     onClearReports: () -> Unit,
+    onClearLogs: () -> Unit,
     onClearAll: () -> Unit,
 ) {
-    var confirm by remember { mutableStateOf<Int?>(null) } // 1=判断 2=报告 3=全部
+    var confirm by remember { mutableStateOf<Int?>(null) } // 1=判断 2=报告 3=状态 4=全部
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -303,12 +305,15 @@ private fun DataManagementCard(
             DataDeleteRow("全部周报 / 月报", "历史页生成的 AI 报告存档", onClearReports) {
                 confirm = 2
             }
+            DataDeleteRow("全部状态记录", "每日状态文字与照片（照片一并删除）", onClearLogs) {
+                confirm = 3
+            }
             DataDeleteRow(
                 "清空所有数据",
-                "打卡记录 + AI 交互 + AI 成就，恢复出厂状态",
+                "打卡记录 + AI 交互 + AI 成就 + 状态记录，恢复出厂状态",
                 onClearAll,
             ) {
-                confirm = 3
+                confirm = 4
             }
         }
     }
@@ -316,7 +321,8 @@ private fun DataManagementCard(
     val (title, text) = when (confirm) {
         1 -> "删除全部 AI 判断记录？" to "将永久删除所有条目的 AI 判断对话记录，不可恢复。已应用的勾选不会被撤销。"
         2 -> "删除全部周报 / 月报？" to "将永久删除所有已生成的周报和月报，不可恢复。"
-        3 -> "清空所有数据？" to "将永久删除全部打卡记录、AI 交互记录和 AI 成就，应用将回到初始状态，不可恢复！"
+        3 -> "删除全部状态记录？" to "将永久删除所有每日状态的文字与照片，不可恢复。"
+        4 -> "清空所有数据？" to "将永久删除全部打卡记录、AI 交互、AI 成就与状态记录，应用将回到初始状态，不可恢复！"
         else -> null to null
     }
     if (title != null && confirm != null) {
@@ -330,7 +336,8 @@ private fun DataManagementCard(
                         when (confirm) {
                             1 -> onClearAutoCheck()
                             2 -> onClearReports()
-                            3 -> onClearAll()
+                            3 -> onClearLogs()
+                            4 -> onClearAll()
                         }
                         confirm = null
                     },
