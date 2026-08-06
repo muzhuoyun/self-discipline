@@ -294,41 +294,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _suggestSummary.value = null
     }
 
-    // ---------- 每日状态记录（文字 + 照片，照片纯本地） ----------
+    // ---------- 每日状态记录（文字 + 照片，照片纯本地；同一天可多条） ----------
 
-    fun dailyLogAt(date: LocalDate): DailyLog? =
-        dailyLogs.value.firstOrNull { it.date == date.toString() }
+    fun dailyLogsAt(date: LocalDate): List<DailyLog> =
+        dailyLogs.value.filter { it.date == date.toString() }.sortedBy { it.createdAt }
 
-    /**
-     * 保存状态记录。编辑场景：保留已有照片、删除被移除的照片、压缩复制新增照片。
-     */
-    fun saveDailyLog(
+    /** 新增一条状态记录：照片压缩复制到本地后入库 */
+    fun addDailyLog(
         date: LocalDate,
         text: String,
-        keepPaths: List<String>,
-        removePaths: List<String>,
-        newPhotos: List<android.net.Uri>,
+        photos: List<android.net.Uri>,
     ) = viewModelScope.launch {
         val dateStr = date.toString()
-        withContext(Dispatchers.IO) {
-            removePaths.forEach { runCatching { File(it).delete() } }
-        }
         val newPaths = withContext(Dispatchers.IO) {
-            LogPhotoStore.savePhotos(getApplication(), dateStr, newPhotos)
+            LogPhotoStore.savePhotos(getApplication(), dateStr, photos)
         }
         repo.saveDailyLog(
             DailyLog(
                 date = dateStr,
                 text = text.trim(),
-                photoPaths = (keepPaths + newPaths).joinToString(","),
+                photoPaths = newPaths.joinToString(","),
             )
         )
     }
 
-    /** 删除某天状态记录（连同照片文件） */
-    fun deleteDailyLog(date: LocalDate) = viewModelScope.launch {
-        LogPhotoStore.deletePhotosFor(getApplication(), date.toString())
-        repo.deleteDailyLog(date.toString())
+    /** 删除一条状态记录（连同照片文件） */
+    fun deleteDailyLog(log: DailyLog) = viewModelScope.launch {
+        withContext(Dispatchers.IO) {
+            log.photoPaths.split(",").filter { it.isNotBlank() }
+                .forEach { runCatching { File(it).delete() } }
+        }
+        repo.deleteDailyLog(log.id)
     }
 
     /** 删除全部状态记录（连同照片文件） */

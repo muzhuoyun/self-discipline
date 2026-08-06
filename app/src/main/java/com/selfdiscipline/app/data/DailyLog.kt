@@ -7,10 +7,14 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 
-/** 每日状态记录：一段文字 + 若干照片（照片仅存本地，不进 AI） */
+/**
+ * 每日状态记录：一段文字 + 若干照片（照片仅存本地，不进 AI）。
+ * 同一天允许多条记录。
+ */
 @Entity(tableName = "daily_log")
 data class DailyLog(
-    @PrimaryKey val date: String,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: String,
     val text: String,
     /** 照片文件路径，逗号分隔 */
     val photoPaths: String,
@@ -20,10 +24,10 @@ data class DailyLog(
 @Dao
 interface DailyLogDao {
 
-    @Query("SELECT * FROM daily_log WHERE date = :date")
-    suspend fun getByDate(date: String): DailyLog?
+    @Query("SELECT * FROM daily_log WHERE date = :date ORDER BY createdAt")
+    suspend fun getByDate(date: String): List<DailyLog>
 
-    @Query("SELECT * FROM daily_log ORDER BY date")
+    @Query("SELECT * FROM daily_log ORDER BY date, createdAt")
     suspend fun getAll(): List<DailyLog>
 
     @Query("SELECT * FROM daily_log WHERE date BETWEEN :start AND :end ORDER BY date")
@@ -32,8 +36,8 @@ interface DailyLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(log: DailyLog)
 
-    @Query("DELETE FROM daily_log WHERE date = :date")
-    suspend fun deleteByDate(date: String)
+    @Query("DELETE FROM daily_log WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
     @Query("DELETE FROM daily_log")
     suspend fun deleteAll()

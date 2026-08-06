@@ -168,34 +168,39 @@ fun DayDetailScreen(
                 )
             }
 
-            // 当日状态（文字 + 照片）
-            val log = vm.dailyLogs.value.firstOrNull { it.date == date.toString() }
-            if (log != null && (log.text.isNotBlank() || log.photoPaths.isNotBlank())) {
+            // 当日状态（文字 + 照片，可多条）
+            val dayLogs = vm.dailyLogs.value
+                .filter { it.date == date.toString() }
+                .sortedBy { it.createdAt }
+            if (dayLogs.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 ) {
-                    Column(Modifier.padding(14.dp)) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "📝 当日状态",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                         )
-                        if (log.text.isNotBlank()) {
-                            Spacer(Modifier.height(6.dp))
-                            Text(log.text, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        val paths = log.photoPaths.split(",").filter { it.isNotBlank() }
-                        if (paths.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                paths.forEach { path ->
-                                    LocalPhoto(
-                                        path = path,
-                                        modifier = Modifier
-                                            .size(88.dp)
-                                            .clip(RoundedCornerShape(8.dp)),
-                                    )
+                        dayLogs.forEach { log ->
+                            if (log.text.isNotBlank() || log.photoPaths.isNotBlank()) {
+                                Text(
+                                    log.text,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                val paths = log.photoPaths.split(",").filter { it.isNotBlank() }
+                                if (paths.isNotEmpty()) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        paths.forEach { path ->
+                                            LocalPhoto(
+                                                path = path,
+                                                modifier = Modifier
+                                                    .size(88.dp)
+                                                    .clip(RoundedCornerShape(8.dp)),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [DailyRecord::class, AiChatLog::class, CustomAchievement::class, DailyLog::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -70,6 +70,24 @@ abstract class AppDatabase : RoomDatabase() {
                         "`photoPaths` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`date`))"
                 )
+            }
+        }
+
+        /** v5 → v6：状态记录改为自增主键，同一天允许多条记录 */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `daily_log_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` TEXT NOT NULL, `text` TEXT NOT NULL, " +
+                        "`photoPaths` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "INSERT INTO daily_log_new (date, text, photoPaths, createdAt) " +
+                        "SELECT date, text, photoPaths, createdAt FROM daily_log"
+                )
+                db.execSQL("DROP TABLE daily_log")
+                db.execSQL("ALTER TABLE daily_log_new RENAME TO daily_log")
             }
         }
     }

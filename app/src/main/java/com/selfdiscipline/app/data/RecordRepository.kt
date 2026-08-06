@@ -86,9 +86,9 @@ class RecordRepository(
         _dailyLogs.value = dailyLogDao.getAll()
     }
 
-    /** 删除某天状态记录（照片文件由调用方清理） */
-    suspend fun deleteDailyLog(date: String) {
-        dailyLogDao.deleteByDate(date)
+    /** 删除一条状态记录（照片文件由调用方清理） */
+    suspend fun deleteDailyLog(id: Long) {
+        dailyLogDao.deleteById(id)
         _dailyLogs.value = dailyLogDao.getAll()
     }
 
