@@ -48,6 +48,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.selfdiscipline.app.ai.AiStreamState
@@ -200,22 +205,31 @@ fun StatusChat(vm: MainViewModel, modifier: Modifier = Modifier) {
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 输入框与右侧按钮等高的固定高度（56dp），视觉对齐
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it },
                         placeholder = { Text("写下今天的感受…（可选照片）") },
-                        modifier = Modifier.weight(1f),
-                        maxLines = 3,
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        minLines = 1,
+                        maxLines = 2,
                     )
-                    IconButton(onClick = { pickLauncher.launch("image/*") }) {
+                    IconButton(
+                        onClick = { pickLauncher.launch("image/*") },
+                        modifier = Modifier.size(56.dp),
+                    ) {
                         Icon(Icons.Filled.PhotoLibrary, contentDescription = "相册")
                     }
-                    IconButton(onClick = { launchCamera() }) {
+                    IconButton(
+                        onClick = { launchCamera() },
+                        modifier = Modifier.size(56.dp),
+                    ) {
                         Icon(Icons.Filled.CameraAlt, contentDescription = "拍照")
                     }
                     IconButton(
                         onClick = { send() },
                         enabled = text.isNotBlank() || newUris.isNotEmpty(),
+                        modifier = Modifier.size(56.dp),
                     ) {
                         Icon(
                             Icons.Filled.Send,
@@ -268,7 +282,11 @@ private fun UserBubble(log: DailyLog, onDelete: () -> Unit) {
             Box {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     if (log.text.isNotBlank()) {
-                        Text(log.text, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            log.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
                     }
                     val paths = log.photoPaths.split(",").filter { it.isNotBlank() }
                     if (paths.isNotEmpty()) {
@@ -299,7 +317,7 @@ private fun UserBubble(log: DailyLog, onDelete: () -> Unit) {
     }
 }
 
-/** AI 消息气泡（医生回复）：左对齐 */
+/** AI 消息气泡（医生回复）：左对齐，支持粗体/斜体格式化，字号与用户消息一致 */
 @Composable
 private fun AiBubble(text: String, loading: Boolean = false, isError: Boolean = false) {
     Row(
@@ -318,12 +336,16 @@ private fun AiBubble(text: String, loading: Boolean = false, isError: Boolean = 
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text(text, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             } else {
                 Text(
-                    text,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = markdownAnnotated(text),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = if (isError) MaterialTheme.colorScheme.onErrorContainer
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -332,3 +354,32 @@ private fun AiBubble(text: String, loading: Boolean = false, isError: Boolean = 
         }
     }
 }
+
+/**
+ * 轻量 Markdown 渲染：支持 **粗体** 与 *斜体*（交替出现，不处理嵌套）。
+ * AI 输出的格式化文本（如 **建议**）在气泡中正确显示。
+ */
+private fun markdownAnnotated(text: String): androidx.compose.ui.text.AnnotatedString =
+    buildAnnotatedString {
+        var rest = text
+        val bold = Regex("""\*\*(.+?)\*\*""")
+        val italic = Regex("""\*(.+?)\*""")
+        while (rest.isNotEmpty()) {
+            val b = bold.find(rest)
+            val i = italic.find(rest)
+            val next = when {
+                b != null && (i == null || b.range.first < i.range.first) ->
+                    b to SpanStyle(fontWeight = FontWeight.Bold)
+                i != null -> i to SpanStyle(fontStyle = FontStyle.Italic)
+                else -> null
+            }
+            if (next == null) {
+                append(rest)
+                break
+            }
+            val (match, style) = next
+            append(rest.substring(0, match.range.first))
+            withStyle(style) { append(match.groupValues[1]) }
+            rest = rest.substring(match.range.last + 1)
+        }
+    }
