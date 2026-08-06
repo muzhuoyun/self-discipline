@@ -48,7 +48,6 @@ fun DayDetailScreen(
 ) {
     val records by vm.records.collectAsState()
     val aiChats by vm.aiChats.collectAsState()
-    val hasRecord = records.any { it.date == date.toString() }
     val record = records.firstOrNull { it.date == date.toString() }
         ?: DailyRecord(date = date.toString())
     val total = Metrics.total(record)
@@ -85,7 +84,8 @@ fun DayDetailScreen(
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            StatusChip(total = total, hasRecord = hasRecord)
+            // 打卡 = 该日期存在 AI 评价（与是否打分无关）
+            StatusChip(total = total, hasRecord = review != null)
         }
 
         Column(

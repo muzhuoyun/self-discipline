@@ -85,7 +85,8 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            StatusChip(total = total, hasRecord = todayRecord != null)
+            // 打卡状态 = 是否点击过「打卡」生成 AI 评价（与是否打分无关）
+            StatusChip(total = total, hasRecord = vm.todayReview() != null)
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = onOpenSettings) {
                 Icon(
@@ -161,7 +162,8 @@ private fun CheckInTab(
                     )
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
-                        val status = if (todayRecord == null) null else statusLevel(total)
+                        // 打卡 = 已生成 AI 评价；未打卡才显示「未打卡」
+                        val status = if (vm.todayReview() != null) statusLevel(total) else null
                         Text(
                             status?.label ?: "未打卡",
                             style = MaterialTheme.typography.labelLarge,
