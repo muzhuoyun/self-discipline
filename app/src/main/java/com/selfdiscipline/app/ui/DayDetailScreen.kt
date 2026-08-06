@@ -48,6 +48,7 @@ fun DayDetailScreen(
 ) {
     val records by vm.records.collectAsState()
     val aiChats by vm.aiChats.collectAsState()
+    val hasRecord = records.any { it.date == date.toString() }
     val record = records.firstOrNull { it.date == date.toString() }
         ?: DailyRecord(date = date.toString())
     val total = Metrics.total(record)
@@ -84,7 +85,7 @@ fun DayDetailScreen(
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            StatusChip(total)
+            StatusChip(total = total, hasRecord = hasRecord)
         }
 
         Column(

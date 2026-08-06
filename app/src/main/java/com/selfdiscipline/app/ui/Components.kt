@@ -59,9 +59,31 @@ fun statusLevel(total: Int): StatusLevel = when {
     else -> StatusLevel.RED
 }
 
-/** 状态徽章：精进日 / 合格日 / 调整日 */
+/** 状态徽章：精进日 / 合格日 / 调整日；未打卡时显示「未打卡」（无结果是空，不是 0 分） */
 @Composable
-fun StatusChip(total: Int, modifier: Modifier = Modifier) {
+fun StatusChip(total: Int, modifier: Modifier = Modifier, hasRecord: Boolean = true) {
+    if (!hasRecord) {
+        Surface(
+            modifier = modifier,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+            shape = RoundedCornerShape(50),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.outline, CircleShape))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "未打卡",
+                    color = MaterialTheme.colorScheme.outline,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        return
+    }
     val s = statusLevel(total)
     Surface(
         modifier = modifier,

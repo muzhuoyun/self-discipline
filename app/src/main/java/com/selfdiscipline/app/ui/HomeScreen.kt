@@ -85,7 +85,7 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            StatusChip(total)
+            StatusChip(total = total, hasRecord = todayRecord != null)
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = onOpenSettings) {
                 Icon(
@@ -161,12 +161,12 @@ private fun CheckInTab(
                     )
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
-                        val status = statusLevel(total)
+                        val status = if (todayRecord == null) null else statusLevel(total)
                         Text(
-                            status.label,
+                            status?.label ?: "未打卡",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold,
-                            color = status.color,
+                            color = status?.color ?: MaterialTheme.colorScheme.outline,
                         )
                         yesterday?.let {
                             val diff = total - Metrics.total(it)
