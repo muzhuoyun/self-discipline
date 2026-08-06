@@ -94,6 +94,8 @@ fun HistoryScreen(
     val monthlyState by vm.monthly.collectAsState()
     val monthlyLabel by vm.monthlyLabel.collectAsState()
     val byDate = records.associateBy { it.date }
+    val dailyLogs by vm.dailyLogs.collectAsState()
+    val logDates = dailyLogs.map { it.date }.toSet()
     var month by remember { mutableStateOf(YearMonth.now()) }
 
     Column(
@@ -179,6 +181,7 @@ fun HistoryScreen(
                                         DayCell(
                                             date = date,
                                             record = byDate[date.toString()],
+                                            hasStatusLog = logDates.contains(date.toString()),
                                             isToday = date == LocalDate.now(),
                                             onClick = { onOpenDay(date) },
                                         )
@@ -525,6 +528,7 @@ private fun TrendChart(
 private fun DayCell(
     date: LocalDate,
     record: DailyRecord?,
+    hasStatusLog: Boolean,
     isToday: Boolean,
     onClick: () -> Unit,
 ) {
@@ -559,6 +563,17 @@ private fun DayCell(
                     color = Color.White.copy(alpha = 0.9f),
                 )
             }
+        }
+        // 有状态记录：右上角小圆点角标（无分数记录时也显示）
+        if (hasStatusLog) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(3.dp)
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.95f)),
+            )
         }
     }
 }
