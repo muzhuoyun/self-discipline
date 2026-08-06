@@ -81,9 +81,11 @@ class RecordRepository(
 
     // ---------- 每日状态记录 ----------
 
-    suspend fun saveDailyLog(log: DailyLog) {
-        dailyLogDao.upsert(log)
+    /** 保存状态记录，返回数据库生成的 id */
+    suspend fun saveDailyLog(log: DailyLog): Long {
+        val id = dailyLogDao.upsert(log)
         _dailyLogs.value = dailyLogDao.getAll()
+        return id
     }
 
     /** 删除一条状态记录（照片文件由调用方清理） */

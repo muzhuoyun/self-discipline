@@ -102,9 +102,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _suggestSummary = MutableStateFlow<String?>(null)
     val suggestSummary: StateFlow<String?> = _suggestSummary.asStateFlow()
 
-    /** 今日状态的 AI 医生会话 */
-    private val _doctor = MutableStateFlow<AiStreamState>(AiStreamState.Idle)
-    val doctor: StateFlow<AiStreamState> = _doctor.asStateFlow()
+    /** 医生回复的流式状态（添加状态记录后自动触发） */
+    private val _doctorReply = MutableStateFlow<AiStreamState>(AiStreamState.Idle)
+    val doctorReply: StateFlow<AiStreamState> = _doctorReply.asStateFlow()
+    /** 当前正在回复的记录 id（用于定位显示） */
+    private val _doctorReplyLogId = MutableStateFlow<Long?>(null)
+    val doctorReplyLogId: StateFlow<Long?> = _doctorReplyLogId.asStateFlow()
 
     private var aiJob: Job? = null
 
@@ -285,32 +288,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _autoCheckOutcome.value = null
     }
 
-    // ---------- 今日状态的 AI 医生 ----------
+    // ---------- 状态记录的 AI 医生回复（添加记录时自动触发） ----------
 
-    /** 当天医生对话的历史（用户原话 + AI 回复） */
-    fun doctorHistory(): List<ChatTurn> = aiChats.value
-        .filter { it.kind == AiKinds.DOCTOR && it.date == LocalDate.now().toString() }
-        .sortedBy { it.createdAt }
-        .flatMap { log ->
-            listOfNotNull(
-                ChatTurn(ChatTurn.ROLE_USER, AiPrompts.extractUserReply(log.prompt)),
-                ChatTurn(ChatTurn.ROLE_ASSISTANT, log.response),
-            )
-        }
+    /** 重试某条记录的医生回复 */
+    fun retryDoctorReply(log: DailyLog) = viewModelScope.launch {
+        requestDoctorReply(log.id, log.text)
+    }
 
-    /** 与 AI 医生对话：以今日状态记录为背景，多轮追问身体状况 */
-    fun runDoctor(input: String) {
-        val today = LocalDate.now()
-        val statusSummary = AiPrompts.doctorStatusSummary(
-            dailyLogs.value.filter { it.date == today.toString() }
-        )
+    /** 以医生身份回复某条状态记录，完成后写回记录 */
+    private fun requestDoctorReply(logId: Long, text: String) {
+        _doctorReplyLogId.value = logId
         stream(
             kind = AiKinds.DOCTOR,
             system = AiPrompts.doctorSystem(),
-            user = AiPrompts.doctorUser(statusSummary, input),
-            history = doctorHistory(),
-            state = _doctor,
-        )
+            user = AiPrompts.doctorUser("", text),
+            state = _doctorReply,
+        ) { full ->
+            viewModelScope.launch {
+                val log = dailyLogs.value.firstOrNull { it.id == logId } ?: return@launch
+                repo.saveDailyLog(log.copy(doctorReply = full))
+                _doctorReplyLogId.value = null
+            }
+        }
     }
 
     /** 删除全部周报/月报 */
@@ -340,7 +339,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun dailyLogsAt(date: LocalDate): List<DailyLog> =
         dailyLogs.value.filter { it.date == date.toString() }.sortedBy { it.createdAt }
 
-    /** 新增一条状态记录：照片压缩复制到本地后入库 */
+    /** 新增一条状态记录：照片压缩复制到本地后入库，然后自动触发 AI 医生回复 */
     fun addDailyLog(
         date: LocalDate,
         text: String,
@@ -350,13 +349,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val newPaths = withContext(Dispatchers.IO) {
             LogPhotoStore.savePhotos(getApplication(), dateStr, photos)
         }
-        repo.saveDailyLog(
-            DailyLog(
-                date = dateStr,
-                text = text.trim(),
-                photoPaths = newPaths.joinToString(","),
-            )
+        val log = DailyLog(
+            date = dateStr,
+            text = text.trim(),
+            photoPaths = newPaths.joinToString(","),
         )
+        val id = repo.saveDailyLog(log)
+        if (log.text.isNotBlank()) {
+            requestDoctorReply(id, log.text)
+        }
     }
 
     /** 删除一条状态记录（连同照片文件） */

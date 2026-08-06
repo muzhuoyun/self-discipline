@@ -18,6 +18,8 @@ data class DailyLog(
     val text: String,
     /** 照片文件路径，逗号分隔 */
     val photoPaths: String,
+    /** AI 以医生身份对这条记录的回复 */
+    val doctorReply: String = "",
     val createdAt: Long = System.currentTimeMillis(),
 )
 
@@ -34,7 +36,7 @@ interface DailyLogDao {
     suspend fun getBetween(start: String, end: String): List<DailyLog>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(log: DailyLog)
+    suspend fun upsert(log: DailyLog): Long
 
     @Query("DELETE FROM daily_log WHERE id = :id")
     suspend fun deleteById(id: Long)

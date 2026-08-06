@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [DailyRecord::class, AiChatLog::class, CustomAchievement::class, DailyLog::class],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -88,6 +88,13 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE daily_log")
                 db.execSQL("ALTER TABLE daily_log_new RENAME TO daily_log")
+            }
+        }
+
+        /** v6 → v7：状态记录新增 AI 医生回复字段 */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE daily_log ADD COLUMN doctorReply TEXT NOT NULL DEFAULT ''")
             }
         }
     }

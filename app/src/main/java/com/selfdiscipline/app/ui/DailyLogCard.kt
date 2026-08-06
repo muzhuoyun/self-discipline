@@ -26,7 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,9 +48,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.selfdiscipline.app.ai.AiStreamState
-import com.selfdiscipline.app.ai.ChatTurn
 import com.selfdiscipline.app.data.DailyLog
 import java.io.File
 import java.time.LocalDate
@@ -79,11 +78,13 @@ fun LocalPhoto(path: String, modifier: Modifier = Modifier, maxWidth: Int = 400)
 }
 
 /**
- * 今日状态卡：同一天可多条记录；文本框与拍照框内联常驻，直接添加。
+ * 今日状态卡：同一天可多条记录；添加记录后 AI 以医生身份自动回复该条记录。
  */
 @Composable
 fun DailyLogCard(vm: MainViewModel, modifier: Modifier = Modifier) {
     val logs by vm.dailyLogs.collectAsState()
+    val doctorReplyState by vm.doctorReply.collectAsState()
+    val replyingLogId by vm.doctorReplyLogId.collectAsState()
     val today = LocalDate.now()
     val todayLogs = logs.filter { it.date == today.toString() }.sortedBy { it.createdAt }
 
@@ -118,11 +119,21 @@ fun DailyLogCard(vm: MainViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
+            Text(
+                "写下感受，AI 以医生视角回复你",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(8.dp))
 
-            // 今日已有记录（多条）
+            // 今日已有记录（多条，每条下方有医生回复）
             todayLogs.forEach { log ->
-                LogItem(log = log, onDelete = { confirmDelete = log })
+                LogItem(
+                    log = log,
+                    isReplying = replyingLogId == log.id,
+                    replyState = doctorReplyState,
+                    onDelete = { confirmDelete = log },
+                )
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -130,7 +141,7 @@ fun DailyLogCard(vm: MainViewModel, modifier: Modifier = Modifier) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text("记录一条：今天的心情、状态、遇到的事…（可选）") },
+                placeholder = { Text("记录一条：今天的心情、状态、遇到的事…") },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth(),
                 colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
@@ -171,77 +182,6 @@ fun DailyLogCard(vm: MainViewModel, modifier: Modifier = Modifier) {
             ) {
                 Text("添加记录")
             }
-
-            // ---------- AI 以医生视角回应今日状态 ----------
-            Spacer(Modifier.height(14.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(10.dp))
-
-            val aiChats by vm.aiChats.collectAsState()
-            val doctorState by vm.doctor.collectAsState()
-            val doctorHistory = remember(aiChats) { vm.doctorHistory() }
-            var doctorInput by remember { mutableStateOf("") }
-
-            Text(
-                "🤖 医生视角",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                "AI 以医生视角审视你的今日状态，询问身体细节、给出日常建议（不替代就医）",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-
-            doctorHistory.forEachIndexed { index, turn ->
-                if (turn.role == ChatTurn.ROLE_USER) {
-                    DoctorBubble(isUser = true, text = turn.content)
-                } else {
-                    DoctorBubble(isUser = false, text = turn.content)
-                }
-            }
-
-            when (doctorState) {
-                is AiStreamState.Loading -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text("正在看你的状态…", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                is AiStreamState.Streaming -> {
-                    DoctorBubble(isUser = false, text = (doctorState as AiStreamState.Streaming).text)
-                }
-                is AiStreamState.Error -> {
-                    Text(
-                        "对话失败：${(doctorState as AiStreamState.Error).message}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                else -> {}
-            }
-
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = doctorInput,
-                onValueChange = { doctorInput = it },
-                placeholder = { Text("补充身体感受，或直接让 AI 看状态…") },
-                minLines = 1,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    vm.runDoctor(doctorInput)
-                    doctorInput = ""
-                },
-                enabled = doctorInput.isNotBlank() || doctorState is AiStreamState.Idle,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("让 AI 以医生视角回应今天的状态")
-            }
         }
     }
 
@@ -249,7 +189,7 @@ fun DailyLogCard(vm: MainViewModel, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
             title = { Text("删除这条状态记录？") },
-            text = { Text("这条记录的文字和照片都会被永久删除。") },
+            text = { Text("这条记录的文字、照片和医生回复都会被永久删除。") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -267,30 +207,14 @@ fun DailyLogCard(vm: MainViewModel, modifier: Modifier = Modifier) {
     }
 }
 
-/** 医生视角对话气泡 */
+/** 一条状态记录：文字 + 照片 + AI 医生回复（含流式） */
 @Composable
-private fun DoctorBubble(isUser: Boolean, text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-    ) {
-        Surface(
-            color = if (isUser) MaterialTheme.colorScheme.secondaryContainer
-            else MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Text(
-                text,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            )
-        }
-    }
-}
-
-/** 一条状态记录：文字 + 照片行 + 右上角小删除按钮 */
-@Composable
-private fun LogItem(log: DailyLog, onDelete: () -> Unit) {
+private fun LogItem(
+    log: DailyLog,
+    isReplying: Boolean,
+    replyState: AiStreamState,
+    onDelete: () -> Unit,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
@@ -311,6 +235,45 @@ private fun LogItem(log: DailyLog, onDelete: () -> Unit) {
                                 modifier = Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)),
                             )
                         }
+                    }
+                }
+
+                // AI 医生回复
+                if (isReplying && replyState is AiStreamState.Loading) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🤖", fontSize = 14.sp)
+                        Spacer(Modifier.width(6.dp))
+                        CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(6.dp))
+                        Text("医生正在看这条状态…", style = MaterialTheme.typography.bodySmall)
+                    }
+                } else if (isReplying && replyState is AiStreamState.Streaming) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "🤖 ${(replyState as AiStreamState.Streaming).text}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (isReplying && replyState is AiStreamState.Error) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "🤖 医生回复失败：${(replyState as AiStreamState.Error).message}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else if (log.doctorReply.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Text(
+                            "🤖 医生：${log.doctorReply}",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(8.dp),
+                        )
                     }
                 }
             }
