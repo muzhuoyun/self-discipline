@@ -242,7 +242,6 @@ private fun StatusTab(vm: MainViewModel) {
     ) {
         Spacer(Modifier.height(8.dp))
         DailyLogCard(vm = vm)
-        DoctorCard(vm = vm)
         Spacer(Modifier.height(16.dp))
     }
 }
