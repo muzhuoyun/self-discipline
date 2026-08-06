@@ -184,11 +184,13 @@ fun DayDetailScreen(
                             fontWeight = FontWeight.Bold,
                         )
                         dayLogs.forEach { log ->
-                            if (log.text.isNotBlank() || log.photoPaths.isNotBlank()) {
-                                Text(
-                                    log.text,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                            if (log.text.isNotBlank() || log.photoPaths.isNotBlank() || log.doctorReply.isNotBlank()) {
+                                if (log.text.isNotBlank()) {
+                                    Text(
+                                        log.text,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
                                 val paths = log.photoPaths.split(",").filter { it.isNotBlank() }
                                 if (paths.isNotEmpty()) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -200,6 +202,20 @@ fun DayDetailScreen(
                                                     .clip(RoundedCornerShape(8.dp)),
                                             )
                                         }
+                                    }
+                                }
+                                // AI 医生回复
+                                if (log.doctorReply.isNotBlank()) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                        shape = RoundedCornerShape(8.dp),
+                                    ) {
+                                        Text(
+                                            "🤖 医生：${log.doctorReply}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.padding(8.dp),
+                                        )
                                     }
                                 }
                             }
