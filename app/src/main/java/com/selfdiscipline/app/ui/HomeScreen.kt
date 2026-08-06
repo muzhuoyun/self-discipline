@@ -52,15 +52,12 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
 ) {
     val records by vm.records.collectAsState()
-    val reviewState by vm.review.collectAsState()
     val today = LocalDate.now()
     val todayRecord = records.firstOrNull { it.date == today.toString() }
     val record = todayRecord ?: DailyRecord(date = today.toString())
     val yesterday = records.firstOrNull { it.date == today.minusDays(1).toString() }
     val total = Metrics.total(record)
-    val ruleSummary = Summary.of(record, yesterday)
     val streak = AchievementEngine.currentStreak(records.sortedBy { it.date }) { true }
-    val historyReview = vm.todayReview()
 
     Column(
         modifier = Modifier
@@ -155,81 +152,8 @@ fun HomeScreen(
             }
         }
 
-        // AI 打卡短评区
-        when {
-            historyReview != null && reviewState is AiStreamState.Idle -> {
-                AiReviewCard(
-                    title = "今日教练点评",
-                    text = historyReview.response,
-                    footer = "记录于当天 · 每天只保留最新一份评价",
-                    onRegenerate = { vm.checkIn() },
-                )
-            }
-            reviewState is AiStreamState.Idle -> {
-                // 未打卡：显示规则总结 + 打卡按钮
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(
-                            ruleSummary,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = { vm.checkIn() },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("💪 打卡，听听 AI 教练的点评")
-                        }
-                        Text(
-                            "打卡后 AI 会结合今天的数据给你一段短评。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
-                    }
-                }
-            }
-            reviewState is AiStreamState.Loading -> {
-                AiReviewCard(title = "AI 教练点评中…", loading = true)
-            }
-            reviewState is AiStreamState.Streaming -> {
-                AiReviewCard(title = "AI 教练点评", text = (reviewState as AiStreamState.Streaming).text)
-            }
-            reviewState is AiStreamState.Done -> {
-                AiReviewCard(
-                    title = "今日教练点评",
-                    text = (reviewState as AiStreamState.Done).text,
-                    footer = "💾 已自动存档",
-                    onRegenerate = { vm.checkIn() },
-                )
-            }
-            reviewState is AiStreamState.Error -> {
-                val msg = (reviewState as AiStreamState.Error).message
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(
-                            "点评失败：$msg",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = { vm.checkIn() }) {
-                            Text("重试")
-                        }
-                    }
-                }
-            }
-        }
-
-        // 今日状态（文字 + 照片，纯本地）
-        DailyLogCard(vm = vm)
+        // 今日打卡大卡片：教练点评 + 今日状态（内联文本框与拍照框）
+        TodayCheckInCard(vm = vm)
 
         if (todayRecord == null) {
             Card(
@@ -265,68 +189,6 @@ fun HomeScreen(
     }
 }
 
-/** AI 输出卡片：流式文本 / 历史短评，支持重新评价 */
-@Composable
-private fun AiReviewCard(
-    title: String,
-    text: String? = null,
-    footer: String? = null,
-    loading: Boolean = false,
-    onRegenerate: (() -> Unit)? = null,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("🤖", fontSize = 18.sp)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.weight(1f),
-                )
-                if (onRegenerate != null) {
-                    TextButton(onClick = onRegenerate) {
-                        Text("🔄 重新评价", color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            if (loading) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "正在结合今天的数据写点评…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-                    )
-                }
-            } else {
-                Text(
-                    text.orEmpty(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-            }
-            footer?.let {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun SectionHeader(title: String, score: Int, max: Int) {
