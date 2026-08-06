@@ -25,6 +25,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +49,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.selfdiscipline.app.ai.AiStreamState
+import com.selfdiscipline.app.ai.ChatTurn
 import com.selfdiscipline.app.data.DailyLog
 import java.io.File
 import java.time.LocalDate
@@ -266,6 +269,107 @@ private fun NewPhotoThumb(context: android.content.Context, uri: Uri, onRemove: 
                 contentDescription = "移除",
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
                 modifier = Modifier.size(14.dp),
+            )
+        }
+    }
+}
+
+/** AI 健康顾问卡：以医生视角审视今日状态，多轮询问身体状况 */
+@Composable
+fun DoctorCard(vm: MainViewModel, modifier: Modifier = Modifier) {
+    val aiChats by vm.aiChats.collectAsState()
+    val doctorState by vm.doctor.collectAsState()
+    val history = remember(aiChats) { vm.doctorHistory() }
+    var input by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text(
+                "🏥 AI 健康顾问",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Text(
+                "以医生视角审视你的今日状态，询问身体细节，给出日常建议（不替代就医）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(10.dp))
+
+            // 历史会话
+            history.forEachIndexed { index, turn ->
+                if (turn.role == ChatTurn.ROLE_USER) {
+                    DoctorBubble(isUser = true, text = turn.content)
+                } else {
+                    DoctorBubble(isUser = false, text = turn.content)
+                }
+            }
+
+            // 当前轮状态
+            when (doctorState) {
+                is AiStreamState.Loading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text("医生正在查看你的状态…", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                is AiStreamState.Streaming -> {
+                    DoctorBubble(isUser = false, text = (doctorState as AiStreamState.Streaming).text)
+                }
+                is AiStreamState.Error -> {
+                    Text(
+                        "对话失败：${(doctorState as AiStreamState.Error).message}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                else -> {}
+            }
+
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                placeholder = { Text("聊聊今天的身体感受…（可选）") },
+                minLines = 1,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    vm.runDoctor(input)
+                    input = ""
+                },
+                enabled = input.isNotBlank() && doctorState is AiStreamState.Idle,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("让 AI 看看我的状态")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DoctorBubble(isUser: Boolean, text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+    ) {
+        Surface(
+            color = if (isUser) MaterialTheme.colorScheme.secondaryContainer
+            else MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
     }

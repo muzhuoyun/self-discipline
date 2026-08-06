@@ -10,6 +10,7 @@ object AiKinds {
     const val WEEKLY = "WEEKLY_REPORT"       // 周报
     const val MONTHLY = "MONTHLY_REPORT"     // 月报
     const val ACHIEVEMENT = "ACHIEVEMENT_ADD" // AI 添加成就
+    const val DOCTOR = "HEALTH_DOCTOR"       // 今日状态的 AI 医生对话
 }
 
 /** 每一次与 AI 的交互记录 */

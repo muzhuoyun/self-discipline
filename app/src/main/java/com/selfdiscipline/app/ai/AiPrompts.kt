@@ -56,6 +56,32 @@ object AiPrompts {
         return sb.toString()
     }
 
+    // ---------- 今日状态的 AI 医生 ----------
+
+    /**
+     * AI 医生角色：以温和医生的视角审视今日状态记录，
+     * 询问身体状况细节，给出日常健康建议（不做诊断、不替代就医）。
+     */
+    fun doctorSystem(): String = "$ROLE\n" +
+        "现在请你以一位温和、专业的医生的视角，审视用户今日的状态记录，和用户交流身体状况。要求：\n" +
+        "1. 先针对用户记录的状态给出共情与初步观察（如疲劳、情绪、饮食、睡眠相关的线索）；\n" +
+        "2. 询问 1~2 个关键的身体细节（睡眠时长、饮食、精力、疼痛等，视记录内容而定）；\n" +
+        "3. 给出 1~2 条温和、可执行的日常建议（作息、饮食、运动、放松）；\n" +
+        "4. 语气像可靠的朋友医生，不使用恐吓性语言；明确说明不能替代专业医疗，严重不适请就医；\n" +
+        "5. 回复 150~300 字，自然一段或短段落，不要 Markdown 标题。"
+
+    /** 医生对话的用户输入：今日状态记录 + 用户的话 */
+    fun doctorUser(statusSummary: String, input: String): String =
+        if (statusSummary.isNotBlank()) "今日状态记录：\n$statusSummary\n\n用户的话：$input"
+        else "用户的话：$input"
+
+    /** 今日状态记录的文字摘要（医生用，含全部文字） */
+    fun doctorStatusSummary(logs: List<DailyLog>): String {
+        if (logs.isEmpty()) return ""
+        return logs.mapNotNull { it.text.trim().takeIf { t -> t.isNotBlank() } }
+            .joinToString("\n") { "- $it" }
+    }
+
     /** 每日状态记录的文字摘要，作为点评 / 周报 / 月报的上下文参考 */
     fun statusLogsContext(logs: List<DailyLog>): String {
         if (logs.isEmpty()) return ""
@@ -145,6 +171,10 @@ object AiPrompts {
     /** 从记录的 prompt 中还原用户原始输入（去掉「××」当天实际情况描述： 前缀） */
     fun extractUserInput(prompt: String): String =
         prompt.substringAfter("：").substringAfter("\n").trim()
+
+    /** 从医生对话记录的 prompt 中还原用户原话 */
+    fun extractUserReply(prompt: String): String =
+        prompt.substringAfter("用户的话：", prompt).trim()
 
     // ---------- 周报 / 月报 ----------
 

@@ -23,11 +23,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +50,7 @@ import com.selfdiscipline.app.logic.AchievementEngine
 import com.selfdiscipline.app.logic.Summary
 import java.time.LocalDate
 
+/** 今日页：打卡 / 状态 两个标签 */
 @Composable
 fun HomeScreen(
     vm: MainViewModel,
@@ -58,18 +64,14 @@ fun HomeScreen(
     val yesterday = records.firstOrNull { it.date == today.minusDays(1).toString() }
     val total = Metrics.total(record)
     val streak = AchievementEngine.currentStreak(records.sortedBy { it.date }) { true }
+    var tab by remember { mutableStateOf(0) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Spacer(Modifier.height(8.dp))
-
+    Column(Modifier.fillMaxSize()) {
         // 标题 + 状态 + 设置
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     "三戒七修",
@@ -93,6 +95,45 @@ fun HomeScreen(
                 )
             }
         }
+
+        TabRow(selectedTabIndex = tab) {
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("📊 打卡") })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("🏥 状态") })
+        }
+
+        if (tab == 0) {
+            CheckInTab(
+                vm = vm,
+                record = record,
+                todayRecord = todayRecord,
+                yesterday = yesterday,
+                total = total,
+                onCategoryClick = onCategoryClick,
+            )
+        } else {
+            StatusTab(vm = vm)
+        }
+    }
+}
+
+/** 打卡标签：总分 + 点评 + 分组打分 */
+@Composable
+private fun CheckInTab(
+    vm: MainViewModel,
+    record: DailyRecord,
+    todayRecord: DailyRecord?,
+    yesterday: DailyRecord?,
+    total: Int,
+    onCategoryClick: (Category) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Spacer(Modifier.height(8.dp))
 
         // 今日总分
         Card(
@@ -155,9 +196,6 @@ fun HomeScreen(
         // AI 教练点评卡
         ReviewCard(vm = vm)
 
-        // 今日状态卡（文字 + 照片，纯本地，可多条）
-        DailyLogCard(vm = vm)
-
         if (todayRecord == null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -192,24 +230,20 @@ fun HomeScreen(
     }
 }
 
-
+/** 状态标签：今日状态记录 + AI 健康顾问 */
 @Composable
-private fun SectionHeader(title: String, score: Int, max: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun StatusTab(vm: MainViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.weight(1f))
-        Text(
-            "$score / $max",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Spacer(Modifier.height(8.dp))
+        DailyLogCard(vm = vm)
+        DoctorCard(vm = vm)
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -309,4 +343,24 @@ private fun ReviewHeader(title: String, onRegenerate: (() -> Unit)? = null) {
         }
     }
     Spacer(Modifier.height(8.dp))
+}
+
+@Composable
+private fun SectionHeader(title: String, score: Int, max: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            "$score / $max",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }

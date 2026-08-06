@@ -102,6 +102,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _suggestSummary = MutableStateFlow<String?>(null)
     val suggestSummary: StateFlow<String?> = _suggestSummary.asStateFlow()
 
+    /** 今日状态的 AI 医生会话 */
+    private val _doctor = MutableStateFlow<AiStreamState>(AiStreamState.Idle)
+    val doctor: StateFlow<AiStreamState> = _doctor.asStateFlow()
+
     private var aiJob: Job? = null
 
     // ---------- 基础 ----------
@@ -279,6 +283,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _autoCheckSessions.value = emptyMap()
         _autoCheck.value = AiStreamState.Idle
         _autoCheckOutcome.value = null
+    }
+
+    // ---------- 今日状态的 AI 医生 ----------
+
+    /** 当天医生对话的历史（用户原话 + AI 回复） */
+    fun doctorHistory(): List<ChatTurn> = aiChats.value
+        .filter { it.kind == AiKinds.DOCTOR && it.date == LocalDate.now().toString() }
+        .sortedBy { it.createdAt }
+        .flatMap { log ->
+            listOfNotNull(
+                ChatTurn(ChatTurn.ROLE_USER, AiPrompts.extractUserReply(log.prompt)),
+                ChatTurn(ChatTurn.ROLE_ASSISTANT, log.response),
+            )
+        }
+
+    /** 与 AI 医生对话：以今日状态记录为背景，多轮追问身体状况 */
+    fun runDoctor(input: String) {
+        val today = LocalDate.now()
+        val statusSummary = AiPrompts.doctorStatusSummary(
+            dailyLogs.value.filter { it.date == today.toString() }
+        )
+        stream(
+            kind = AiKinds.DOCTOR,
+            system = AiPrompts.doctorSystem(),
+            user = AiPrompts.doctorUser(statusSummary, input),
+            history = doctorHistory(),
+            state = _doctor,
+        )
     }
 
     /** 删除全部周报/月报 */
