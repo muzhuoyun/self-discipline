@@ -137,14 +137,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val today = LocalDate.now()
         val record = recordAt(today) ?: DailyRecord(date = today.toString())
         val ruleSummary = Summary.of(record, null)
-        // 当天的 AI 判断对话作为点评参考
+        // 当天的 AI 判断对话 + 状态记录作为点评参考
         val dialogue = AiPrompts.dialogueContext(
             aiChats.value.filter { it.date == today.toString() }
+        )
+        val statusLogs = AiPrompts.statusLogsContext(
+            dailyLogs.value.filter { it.date == today.toString() }
         )
         stream(
             kind = AiKinds.REVIEW,
             system = AiPrompts.reviewSystem(),
-            user = AiPrompts.reviewUser(record, ruleSummary, dialogue),
+            user = AiPrompts.reviewUser(record, ruleSummary, dialogue + "\n" + statusLogs),
             state = _review,
         )
     }
@@ -221,14 +224,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val (start, end, label) = lastWeekRange(LocalDate.now())
         _weeklyLabel.value = label
         val records = records.value.filter { it.date >= start.toString() && it.date <= end.toString() }
-        // 周期内的 AI 判断对话作为报告参考
+        // 周期内的 AI 判断对话 + 状态记录作为报告参考
         val dialogue = AiPrompts.dialogueContext(
             aiChats.value.filter { it.date >= start.toString() && it.date <= end.toString() }
+        )
+        val statusLogs = AiPrompts.statusLogsContext(
+            dailyLogs.value.filter { it.date >= start.toString() && it.date <= end.toString() }
         )
         stream(
             kind = AiKinds.WEEKLY,
             system = AiPrompts.weeklySystem(),
-            user = "报告范围：$start ~ $end\n" + AiPrompts.weeklyUser(records, dialogue),
+            user = "报告范围：$start ~ $end\n" + AiPrompts.weeklyUser(records, dialogue + "\n" + statusLogs),
             state = _weekly,
         )
     }
@@ -240,10 +246,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val dialogue = AiPrompts.dialogueContext(
             aiChats.value.filter { it.date >= start.toString() && it.date <= end.toString() }
         )
+        val statusLogs = AiPrompts.statusLogsContext(
+            dailyLogs.value.filter { it.date >= start.toString() && it.date <= end.toString() }
+        )
         stream(
             kind = AiKinds.MONTHLY,
             system = AiPrompts.monthlySystem(),
-            user = "报告范围：$start ~ $end\n" + AiPrompts.monthlyUser(records, dialogue),
+            user = "报告范围：$start ~ $end\n" + AiPrompts.monthlyUser(records, dialogue + "\n" + statusLogs),
             state = _monthly,
         )
     }

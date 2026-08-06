@@ -4,6 +4,7 @@ import com.selfdiscipline.app.data.AiChatLog
 import com.selfdiscipline.app.data.AiKinds
 import com.selfdiscipline.app.data.Category
 import com.selfdiscipline.app.data.CustomAchievement
+import com.selfdiscipline.app.data.DailyLog
 import com.selfdiscipline.app.data.DailyRecord
 import com.selfdiscipline.app.data.Metrics
 import org.json.JSONArray
@@ -52,6 +53,24 @@ object AiPrompts {
         sb.append("总分：${Metrics.total(record)} / 100\n")
         sb.append("规则总结：$ruleSummary\n")
         if (dialogue.isNotBlank()) sb.append(dialogue)
+        return sb.toString()
+    }
+
+    /** 每日状态记录的文字摘要，作为点评 / 周报 / 月报的上下文参考 */
+    fun statusLogsContext(logs: List<DailyLog>): String {
+        if (logs.isEmpty()) return ""
+        val sb = StringBuilder("用户状态记录（用户自己写下的当日感受，请作为参考）：\n")
+        logs.groupBy { it.date }.entries.sortedBy { it.key }.forEach { (date, dayLogs) ->
+            val d = runCatching { LocalDate.parse(date) }.getOrNull()
+            val label = if (d != null) "${d.monthValue}月${d.dayOfMonth}日" else date
+            val texts = dayLogs.mapNotNull { it.text.trim().takeIf { t -> t.isNotBlank() } }
+                .map { it.take(60) }
+            if (texts.isNotEmpty()) {
+                sb.append("- $label：")
+                sb.append(texts.joinToString("；"))
+                sb.append("\n")
+            }
+        }
         return sb.toString()
     }
 
