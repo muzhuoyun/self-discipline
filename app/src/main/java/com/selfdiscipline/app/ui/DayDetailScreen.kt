@@ -53,10 +53,11 @@ fun DayDetailScreen(
     val total = Metrics.total(record)
     val today = LocalDate.now()
     val isToday = date == today
-    val status = statusLevel(total)
     val review = aiChats.lastOrNull {
         it.kind == AiKinds.REVIEW && it.date == date.toString()
     }
+    // 打卡 = 该日期有 AI 评价；无评价显示「未打卡」
+    val status = if (review != null) statusLevel(total) else null
 
     Column(Modifier.fillMaxSize()) {
         // 顶部栏
@@ -121,10 +122,10 @@ fun DayDetailScreen(
                         )
                         Spacer(Modifier.weight(1f))
                         Text(
-                            status.label,
+                            status?.label ?: "未打卡",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold,
-                            color = status.color,
+                            color = status?.color ?: MaterialTheme.colorScheme.outline,
                         )
                     }
                     Spacer(Modifier.height(12.dp))
@@ -134,7 +135,7 @@ fun DayDetailScreen(
                             .fillMaxWidth()
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp)),
-                        color = status.color,
+                        color = status?.color ?: MaterialTheme.colorScheme.outline,
                         trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
                     )
                 }
